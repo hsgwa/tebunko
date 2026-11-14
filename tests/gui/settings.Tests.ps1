@@ -269,6 +269,61 @@ Describe "S6 既定のワークスペース" -Tag Gui {
     }
 }
 
+# S6 の続き。ツールのフォルダに書けないとき（Program Files・読み取り専用の共有フォルダ）は、設定が既定のワークスペースの直下に読み書きされる。
+# ツールのフォルダは CreateFiles・CreateDirectories の Deny で書けなくする（読み取り専用の属性はフォルダへの書き込みを止めない）。
+# 画面の補助が写しの下に書かないよう、場面の作業フォルダ（Work）は写しの外に置く
+Describe "S6 既定のワークスペース（ツールのフォルダに書けない）" -Tag Gui {
+    BeforeAll {
+        $script:envBefore = getGuiEnvSnapshot
+        $script:tool = newGuiTool $TestDrive @{ workspaceFolder = "" }
+        $script:defaultWork = $script:tool.DefaultWorkspace
+        $script:source = Join-Path $TestDrive "元のフォルダ\営業"
+        newGuiSourceFolder $script:source
+        $config = readGuiConfig $script:tool
+        $config | Add-Member -NotePropertyName targetFolders -NotePropertyValue @(@{ name = "営業"; path = $script:source; enabled = $true }) -Force
+        # 設定は既定のワークスペースの直下に置き、写しの下の設定と work は消す
+        writeGuiConfig $script:defaultWork $config
+        Remove-Item -LiteralPath $script:tool.Config -Force
+        Remove-Item -LiteralPath $script:tool.Work -Recurse -Force
+        $script:tool.Work = Join-Path $TestDrive "場面の作業"
+        [void][IO.Directory]::CreateDirectory($script:tool.Work)
+        $script:emptyDir = Join-Path $TestDrive "空のフォルダ"
+        [void][IO.Directory]::CreateDirectory($script:emptyDir)
+        $script:rule = setGuiToolReadOnly $script:tool.Dir
+    }
+
+    AfterAll {
+        if ($script:rule) { setGuiToolReadOnly $script:tool.Dir -Restore $script:rule }
+    }
+
+    It "ツールのフォルダに書けないとき、ワークスペースの変更が既定のワークスペースの setting.config に書かれる" {
+        $S = startGui $script:tool "S6書けない"
+        invokeGuiScene $S {
+            setGuiStep $S "［変更…］で空のフォルダに変える"
+            selectGuiTab $S "SettingsTab" "ChangeWorkspaceButton"
+            clickGui $S $S.Window "ChangeWorkspaceButton" "［変更…］"
+            useGuiFolderPicker $S $script:emptyDir
+            answerGuiConfirm $S "ワークスペースを変える確認" "へ移動します" "移動する"
+            waitGui $S "既定のワークスペースの設定に書かれる" ${guiDefaultTimeout} {
+                # 画面が書いている途中は読めないことがあるので、読めなければ次の機会に回す
+                try {
+                    $saved = Get-Content -LiteralPath "$($script:defaultWork)\setting.config" -Raw -Encoding UTF8 -ErrorAction Stop | ConvertFrom-Json
+                    $saved.workspaceFolder -eq $script:emptyDir
+                } catch { $false }
+            } | Out-Null
+            closeGui $S
+        }
+        $saved = Get-Content -LiteralPath "$($script:defaultWork)\setting.config" -Raw -Encoding UTF8 | ConvertFrom-Json
+        $saved.workspaceFolder | Should -Be $script:emptyDir
+        Test-Path -LiteralPath "$($script:tool.Dir)\setting.config" | Should -BeFalse
+        Test-Path -LiteralPath "$($script:tool.Dir)\work" | Should -BeFalse
+    }
+
+    It "利用者の環境（利用者の既定のワークスペースを含む）に触っていない" {
+        compareGuiEnvSnapshot $script:envBefore (getGuiEnvSnapshot) | Should -BeNullOrEmpty
+    }
+}
+
 # S12 は、検索結果の件数の上限。設定の画面で変え、起動し直さずに次の検索から効くこと（制限なしは総数を分けて出さないこと）を確かめる
 Describe "S12 検索結果の件数の上限" -Tag Gui {
     BeforeAll {
