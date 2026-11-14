@@ -352,7 +352,7 @@ class PreviewTable {
     }
 }
 
-# 検索結果の、元のファイル 1 つ分（結果の表の見出しの行）。検索のヒットは生のまま Hits に持ち、表の行（HitRow）は
+# 検索結果の、元のファイル 1 つ分（結果の表の見出しの行）。検索のヒットは、場所ごとのまとまり（searchContentIndex の Runs の要素）のまま Runs に持ち、表の行（HitRow）は
 # 開いたとき・絞り込み・並べ替え・出力のときに初めて作って Rows に入れる。開いているときだけ、見出しの下に表の行として並べる（result_list.ps1）。
 # 文言（AppKind・LocationText）は画面側で判断層（search\result_list_view.ps1）の関数から作って入れる
 class FileGroup : NotifyBase {
@@ -369,9 +369,13 @@ class FileGroup : NotifyBase {
     [string]$LocationPrefix # 見出しの右端の件数の前に付ける場所（「[シート]4月 ほか 2 か所 ・ 」）。場所が 1 か所だけのときは空（行の「場所」列と重なるため）
     [bool]$IsExpanded       # 見出しの下にヒットした行を並べるか（検索した直後は閉じている）
     [int]$ShownCount        # 見出しに出す件数（絞り込みに合うヒットの数）
-    # 検索のヒット（searchContentIndex の結果そのまま。見つかった順）
-    [System.Collections.Generic.List[object]]$Hits = [System.Collections.Generic.List[object]]::new()
-    # 作った表の行（Hits の先頭から順に作る。並べ替えたらその順）と、そのうち絞り込みに合う行
+    # 検索のヒット（searchContentIndex が返した場所ごとのまとまり。見つかった順。並べ替えない）と、その行の数
+    [System.Collections.Generic.List[object]]$Runs = [System.Collections.Generic.List[object]]::new()
+    [int]$HitCount
+    # 行にしたヒットの位置（RowRun 番目のまとまりの RowOffset 行目の次から作る。並べ替えていないときの続き）
+    [int]$RowRun
+    [int]$RowOffset
+    # 作った表の行（ヒットの先頭から順に作る。並べ替えたらその順）と、そのうち絞り込みに合う行
     [System.Collections.Generic.List[object]]$Rows = [System.Collections.Generic.List[object]]::new()
     [System.Collections.Generic.List[object]]$ShownRows = [System.Collections.Generic.List[object]]::new()
     # 結果の表での状態（result_list.ps1 が使う）。InView は見出しを表に入れたか、DisplayedCount は見出しの下に入れた行の数
@@ -379,9 +383,12 @@ class FileGroup : NotifyBase {
     [int]$DisplayedCount
     # 行を作る件数の上限（0 は既定の groupRowLimit）。「続き」を出すたびに増やす。上限を超えたヒットは、続きを出すまで行にしない
     [int]$RowLimit
-    # 並べ替えているときの、ヒット（Hits）の並び順（見つかった順の番号。表の行はこの順に作る）。ヒットが上限を超えるファイルだけ
-    # （全件の行は作らないので、生のヒットを並べ替えておく）。無ければ見つかった順
+    # 並べ替えているときの、ヒットの並び順（見つかった順の番号。表の行はこの順に作る）。ヒットが上限を超えるファイルだけ
+    # （全件の行は作らないので、生のヒットを並べ替えておく）。無ければ見つかった順。
+    # 並べ替えるときだけ、まとまりを 1 件ずつの値（HitItems。expandHitRuns）に広げる（ItemRun は広げ終えたまとまりの数）
     [int[]]$HitOrder
+    [System.Collections.Generic.List[object]]$HitItems = [System.Collections.Generic.List[object]]::new()
+    [int]$ItemRun
     # 見出しの下の行の末尾に出す「続き」の行（残りのヒットがあるとき。無ければ $null）と、それを表に入れているか
     [object]$MoreRow
     [bool]$MoreInView

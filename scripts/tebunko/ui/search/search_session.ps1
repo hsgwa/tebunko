@@ -127,25 +127,27 @@ function pumpSearch {
         return
     }
     $shared = $s.Shared
-    $hit = $null
+    $run = $null
     # 1 回に移す量は件数ではなく時間で区切る（件数で区切ると、ヒットが多いときに画面が 0.5 秒以上止まる）
     $elapsed = [System.Diagnostics.Stopwatch]::StartNew()
-    while ($elapsed.ElapsedMilliseconds -lt ${searchPumpMilliseconds} -and $shared.Queue.TryDequeue([ref]$hit)) {
-        # ヒットは元のファイルの見出しに生のまま貯めるだけにする。表の行（HitRow）は開いたときなどに作り（ensureRows）、
+    while ($elapsed.ElapsedMilliseconds -lt ${searchPumpMilliseconds} -and $shared.Queue.TryDequeue([ref]$run)) {
+        # ヒット（場所ごとのまとまり）は元のファイルの見出しにそのまま貯めるだけにする。表の行（HitRow）は開いたときなどに作り（ensureRows）、
         # 表への反映は、この 1 回の最後に flushResults でまとめて行う。ヒットごとに通る処理なので、
         # 関数は初めてのファイル・場所のときだけ呼ぶ（呼ぶと、そのぶん結果を表に移すのが遅くなる）
-        $relDir = [string]$hit.RelDir
-        $fileKey = "$($hit.Root)\$relDir\$($hit.Book)"
+        $relDir = [string]$run.RelDir
+        $fileKey = "$($run.Root)\$relDir\$($run.Book)"
         $group = $null
         if (!$script:fileGroups.TryGetValue($fileKey, [ref]$group)) {
-            $group = newFileGroup $fileKey $relDir $hit.Book
+            $group = newFileGroup $fileKey $relDir $run.Book
         }
-        $group.Hits.Add($hit)
-        if ($group.AddLocation($hit.Location)) {
-            addFileGroupLocation $group $hit.Book $hit.Location
+        $group.Runs.Add($run)
+        $rowCount = $run.Lines.Count
+        $group.HitCount += $rowCount
+        if ($group.AddLocation($run.Location)) {
+            addFileGroupLocation $group $run.Book $run.Location
         }
         [void]$script:dirtyGroups.Add($group)
-        $script:hitCount++
+        $script:hitCount += $rowCount
     }
     flushResults
     if ($script:hitCount -gt 0 -and !$s.TraceFirstRow) {

@@ -82,7 +82,7 @@ Describe "検索結果の行（本文インデックスのファイルのヒッ�
         $index = Join-Path $TestDrive "search_dir"
         newTsv "$index\A社.xlsx_old.xlsx\$(toIndexFileName "Sheet1")" @("りんご`t200")
         foreach ($folder in (findIndexFoldersWithBooks $index)) { [void](updateFolderContentIndex $folder) }
-        $hit = @((searchContentIndex "りんご" (getContentIndexFiles @($index)).ContentIndexFiles $true).Hits)[0]
+        $hit = (expandHitRuns (searchContentIndex "りんご" (getContentIndexFiles @($index)).ContentIndexFiles $true).Runs)[0]
         $hit.Book | Should -Be "A社.xlsx_old.xlsx"
         (toSearchResultLines @($hit)).Lines[0] | Should -Be "A社.xlsx_old.xlsx`t[シート]Sheet1`tセル`t1`tりんご`t200"
     }
@@ -91,7 +91,7 @@ Describe "検索結果の行（本文インデックスのファイルのヒッ�
         $objectIndex = Join-Path $TestDrive "search_object"
         newTsv "$objectIndex\[確定]見積.xlsx\$(toIndexFileName "見積[図形]")" @("F2`t`"納期は$([char]0x2028)別途`"")
         foreach ($folder in (findIndexFoldersWithBooks $objectIndex)) { [void](updateFolderContentIndex $folder) }
-        $hit = @((searchContentIndex "納期" (getContentIndexFiles @($objectIndex)).ContentIndexFiles $true).Hits)[0]
+        $hit = (expandHitRuns (searchContentIndex "納期" (getContentIndexFiles @($objectIndex)).ContentIndexFiles $true).Runs)[0]
         $hit.Book | Should -Be "[確定]見積.xlsx"
         $hit.Location | Should -Be "見積[図形]"
         (toSearchResultLines @($hit)).Lines[0] | Should -Be "[確定]見積.xlsx`t[シート]見積`t図形`t1`tF2`t`"納期は`n別途`""
@@ -119,7 +119,7 @@ Describe "toSearchResultLines" -Tag Io {
         newTsv "$index\x\A社.xlsx\Sheet1.tsv" @("a`t`"りんご${cellNewLine}みかん`"`tc")
         newTsv "$index\文書.docx\ページ001.tsv" @("`"引用`"で始まる りんご")
         foreach ($folder in (findIndexFoldersWithBooks $index)) { [void](updateFolderContentIndex $folder) }
-        $hits = @((searchContentIndex "りんご" (getContentIndexFiles @($index)).ContentIndexFiles $true).Hits | Sort-Object RelDir -Descending)
+        $hits = @((expandHitRuns (searchContentIndex "りんご" (getContentIndexFiles @($index)).ContentIndexFiles $true).Runs) | Sort-Object RelDir -Descending)
     }
 
     It "相対フォルダ付きのファイル名・場所・行番号・該当行にし、見出しに最大セル数分の列名を付ける" {
