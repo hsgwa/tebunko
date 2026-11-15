@@ -49,7 +49,7 @@ Nothing else is needed: no administrator rights, no change to the PowerShell exe
 ## Safety
 
 - The product consists only of PowerShell scripts and screen definitions. It contains no third-party code libraries; the only third-party part is the icon shapes (Lucide). The zip edition contains no executable files (`.exe` or `.dll`).
-- It makes no network connections, asks for no administrator rights, changes no registry values, and does not stay resident. The installer edition writes only the uninstall information that makes it appear in the Windows app list.
+- It makes no network connections, asks for no administrator rights, changes no registry values, and does not stay resident. The zip edition does all of this; the installer edition differs in one point only: it writes the uninstall information that makes it appear in the Windows app list.
 - These properties are checked by tests and static analysis (PSScriptAnalyzer, CodeQL) in CI on every change.
 - The index stores the text of your documents as is and does not inherit the access rights of the original files. Keep the workspace folder (default `%USERPROFILE%\Documents\tebunko_ws`) at the same or stricter access rights than the folders you search.
 
