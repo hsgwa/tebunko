@@ -90,11 +90,11 @@
 | コンストラクタ | targets, apps, bookFolders, folderByName, carried, options | – | 取り込み対象（apps はファイルごとに最初に要る Office のアプリ。要らなければ空）と設定を受け取る。必要な設定（`LookAhead`・`WorkerScript`・`PostponedReasonInUse`・`PostponedReasonRunning`）が足りなければ、その名前を書いて失敗する。省略できる `TestPath`（`{ param($path, $kind) }`。`$kind` は `File` か `Folder`）で、元のファイル・フォルダの有無の調べ方を差し替えられる |
 | `Start` | workerCount, settings | – | ワーカーごとの列を持つ入れ物を作る（スレッドは、そのワーカーに初めて渡すときに始める。持ち主のアプリ・渡してある数・諦めたかの状態もワーカーごとに持つ）。0 のときは作らず、司令のスレッドで取り込む |
 | `BeginPass` | – | – | 渡す繰り返しの 1 回分を始める（先読みの範囲を数え直す） |
-| `DispatchNext` | – | `@{Kind=Abandoned／Vanished／Dispatched; ...}` / `$null` | 並びの先から、`selectIngestWorker` で渡し先のワーカーを決め、空きがあるファイルを 1 つ選ぶ（渡し先は `Worker`。ワーカーを使うときは `Task.Office` に Office が要るかも入れる） |
+| `DispatchNext` | – | `@{Kind=Postponed／Vanished／Dispatched; ...}` / `$null` | 並びの先から、`selectIngestWorker` で渡し先のワーカーを決め、空きがあるファイルを 1 つ選ぶ（渡し先は `Worker`。ワーカーを使うときは `Task.Office` に Office が要るかも入れる） |
 | `Submit` | step | – | 選んだファイルをワーカーの列に渡す |
 | `SetInlineResult` | result | – | スレッドを使わないとき、司令が自分のスレッドで取り込んだ結果を `InlineResult` に置く（次の `Receive` が返して空にする） |
 | `Receive` | – | `@{Kind=Completed／Postponed／RerouteAbandoned; ...}` / `$null` | 結果を 1 つ受け取る |
-| `TakeAbandonedWorker` | – | `@{Worker; Entries}` / `$null` | 諦めたワーカーを 1 つ取り出す（取り込み中・列のファイルといっしょに返し、取り込み中から外す） |
+| `TakeAbandonedWorker` | – | 後回しの値（`@{Kind=Postponed; Entry; Reason}`）の並び（無ければ空） | 諦めたワーカー全部の取り込み中・列のファイルを、取り込み中から外して後回しの値で返す |
 | `StopIfRequested` | requested（bool） | bool | 中止を求められ、渡していないファイルがあるとき、今回初めて止めた場合だけ `$true` を返し、以後は渡さない（残りの件数は `Remaining`） |
 | `GetInflightCount` | relPath | 件数 | 取り込み中のファイルを続けて取り込みを始めた回数（今の分を含む。取り込み中でなければ 0。ジャーナルの「始」に書く） |
 | `Stop` | – | – | 列を閉じ、諦めていないワーカーが終わるのを待ってから片づける。諦めたワーカーは待たず、止める依頼だけを出す |
