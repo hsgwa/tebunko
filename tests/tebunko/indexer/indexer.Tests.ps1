@@ -63,8 +63,8 @@ BeforeAll {
                 $files = @(if ($null -eq $narrowed) { $all.ContentIndexFiles } else { $narrowed.ContentIndexFiles })
                 $viaGram = searchContentIndex $word $files $true 0
                 $full = searchContentIndex $word $all.ContentIndexFiles $true 0
-                (@($viaGram.Hits | ForEach-Object { "$($_.RelPath)|$($_.Book)|$($_.Location)|$($_.LineNumber)" }) -join "`n") | Should -Be (@($full.Hits | ForEach-Object { "$($_.RelPath)|$($_.Book)|$($_.Location)|$($_.LineNumber)" }) -join "`n")
-                $full.Hits.Count | Should -BeGreaterThan 0
+                (@((expandHitRuns $viaGram.Runs) | ForEach-Object { "$($_.RelPath)|$($_.Book)|$($_.Location)|$($_.LineNumber)" }) -join "`n") | Should -Be (@((expandHitRuns $full.Runs) | ForEach-Object { "$($_.RelPath)|$($_.Book)|$($_.Location)|$($_.LineNumber)" }) -join "`n")
+                (getHitRunCount $full.Runs) | Should -BeGreaterThan 0
                 $compared++
             }
         }
@@ -445,7 +445,7 @@ It "前回取り込み中に強制終了したファイルは最後に回して�
         $status.Rows["テキスト混在\議事録.docx"].状態 | Should -Be ${stateDone}
 
         $contentIndexFiles = (getContentIndexFiles @("$root\work\store\content")).ContentIndexFiles
-        $hits = @((searchContentIndex "検索語" $contentIndexFiles $true).Hits)
+        $hits = @((expandHitRuns (searchContentIndex "検索語" $contentIndexFiles $true).Runs))
         $hits.Count | Should -Be 1
         $hits[0].Book | Should -Be "メモ.txt"
         $hits[0].LineNumber | Should -Be 2
@@ -1138,7 +1138,7 @@ Describe "indexer.ps1（設定から外れたインデックス）" -Tag Io {
             # 検索の経路（content_index_search.ps1）で、残したインデックスの中の語が今までどおり当たる
             $found = getContentIndexFiles @("$($state.Root)\work\store\content")
             $regex = New-Object regex ([regex]::Escape("大文字拡張子"))
-            @((searchContentIndexFiles $found.ContentIndexFiles 0 $found.ContentIndexFiles.Count $regex -1 $regex "lines").Hits).Count | Should -BeGreaterThan 0
+            @((expandHitRuns (searchContentIndexFiles $found.ContentIndexFiles 0 $found.ContentIndexFiles.Count $regex -1 $regex "lines").Runs)).Count | Should -BeGreaterThan 0
         }
     }
 
@@ -1345,7 +1345,7 @@ Describe "indexer.ps1（取り込み中に元のファイルが無くなる）" 
         runIndexer $root | Should -Be 0
         [System.IO.Directory]::Exists("$root\work\store\content\総務3\残った.xlsx") | Should -Be $false
         $contentIndexFiles = findContentIndexFiles "$root\work\store\content" "総務3" $false
-        (searchContentIndex "残っていた中身" $contentIndexFiles $true).Hits.Count | Should -Be 1
+        (getHitRunCount (searchContentIndex "残っていた中身" $contentIndexFiles $true).Runs) | Should -Be 1
     }
 
     It "クロール対象フォルダごと見えなくなったら、残りを未取り込みのまま 1 で終わる" {

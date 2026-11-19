@@ -88,9 +88,9 @@ Describe "結果のファイル出力" -Tag Io {
             $dir = getSearchOverflowDir $own.TmpRoot 1
             $workers = if ($Mode -eq "single") { 1 } else { 3 }
             $all = searchContentIndex "多い" $contentIndexFiles $true 0 -workerCount $workers -taskBytes 1
-            $expectedHits = @($all.Hits | Where-Object { testHitFilter $_.Book $Filter })
+            $expectedHits = @((expandHitRuns $all.Runs) | Where-Object { testHitFilter $_.Book $Filter })
             $result = searchContentIndex "多い" $contentIndexFiles $true $Limit -workerCount $workers -taskBytes 1 -checkEvery 1 -overflowDir $dir
-            $shown = @($result.Hits | Where-Object { testHitFilter $_.Book $Filter })
+            $shown = @((expandHitRuns $result.Runs) | Where-Object { testHitFilter $_.Book $Filter })
             $out = Join-Path $own.Dir "out.$Format"
             $request = newExportRequest (newSource $own $result $dir) $out $shown $Filter "多い" $Format
 
@@ -110,7 +110,7 @@ Describe "結果のファイル出力" -Tag Io {
             $dir = getSearchOverflowDir $own.TmpRoot 1
             $result = searchContentIndex "多い" $contentIndexFiles $true 3 -workerCount 1 -overflowDir $dir
             $out = Join-Path $own.Dir "out.$Format"
-            $request = newExportRequest (newSource $own $result $dir) $out @($result.Hits) "" "多い" $Format
+            $request = newExportRequest (newSource $own $result $dir) $out @((expandHitRuns $result.Runs)) "" "多い" $Format
             invokeSearchExport $request
             $bytes = [System.IO.File]::ReadAllBytes($out)
             $bytes[0..2] | Should -Be @(0xEF, 0xBB, 0xBF)
@@ -131,7 +131,7 @@ Describe "結果のファイル出力" -Tag Io {
             $source = newSource $own $result $dir
             $source[$Reason] = $true
             $out = Join-Path $own.Dir "out.csv"
-            $request = newExportRequest $source $out @($result.Hits) "" "多い" "csv"
+            $request = newExportRequest $source $out @((expandHitRuns $result.Runs)) "" "多い" "csv"
 
             invokeSearchExport $request
 
@@ -139,7 +139,7 @@ Describe "結果のファイル出力" -Tag Io {
             $request.Scope | Should -Be "HeadOnly"
             $request.HeadOnlyReason | Should -Be $Reason
             $request.Written | Should -Be 3
-            assertSameRows (readExportRows $out "csv") (getReferenceRows "csv" $result.Hits)
+            assertSameRows (readExportRows $out "csv") (getReferenceRows "csv" (expandHitRuns $result.Runs))
         }
     }
 
@@ -153,7 +153,7 @@ Describe "結果のファイル出力" -Tag Io {
         }
 
         It "始める前に中止されていたら、書かずに前のファイルを残す" {
-            $request = newExportRequest (newSource $own $result $dir) $out @($result.Hits) "" "多い" "csv"
+            $request = newExportRequest (newSource $own $result $dir) $out @((expandHitRuns $result.Runs)) "" "多い" "csv"
             $request.Stop = $true
             invokeSearchExport $request
             $request.Outcome | Should -Be "Cancelled"
@@ -191,7 +191,7 @@ Describe "結果のファイル出力" -Tag Io {
         }
 
         It "ほかのアプリが開いているときは Locked にして、書き始めない" {
-            $request = newExportRequest (newSource $own $result $dir) $out @($result.Hits) "" "多い" "csv"
+            $request = newExportRequest (newSource $own $result $dir) $out @((expandHitRuns $result.Runs)) "" "多い" "csv"
             $lock = [System.IO.File]::Open($out, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
             try {
                 invokeSearchExport $request
@@ -206,7 +206,7 @@ Describe "結果のファイル出力" -Tag Io {
 
         It "出力先のフォルダを作れないとき（ファイルの下・届かない共有）は、Locked ではなく Failed にして、理由を残す" {
             $blocked = Join-Path $out "sub\a.csv"
-            $request = newExportRequest (newSource $own $result $dir) $blocked @($result.Hits) "" "多い" "csv"
+            $request = newExportRequest (newSource $own $result $dir) $blocked @((expandHitRuns $result.Runs)) "" "多い" "csv"
             invokeSearchExport $request
             $request.Outcome | Should -Be "Failed"
             $request.Error | Should -Not -BeNullOrEmpty
@@ -227,7 +227,7 @@ Describe "結果のファイル出力" -Tag Io {
         }
 
         It "読み取り専用のときは Denied にして、書き始めない" {
-            $request = newExportRequest (newSource $own $result $dir) $out @($result.Hits) "" "多い" "csv"
+            $request = newExportRequest (newSource $own $result $dir) $out @((expandHitRuns $result.Runs)) "" "多い" "csv"
             [System.IO.File]::SetAttributes($out, [System.IO.FileAttributes]::ReadOnly)
             try {
                 invokeSearchExport $request
@@ -240,7 +240,7 @@ Describe "結果のファイル出力" -Tag Io {
 
         It "前の出力が止められて残った .new は、次の出力の始めに消える" {
             [System.IO.File]::WriteAllText("$out.new", "古い", ${utf8Bom})
-            $request = newExportRequest (newSource $own $result $dir) $out @($result.Hits) "" "多い" "csv"
+            $request = newExportRequest (newSource $own $result $dir) $out @((expandHitRuns $result.Runs)) "" "多い" "csv"
             invokeSearchExport $request
             $request.Error | Should -BeNullOrEmpty
             $request.Outcome | Should -Be "Done"
@@ -250,7 +250,7 @@ Describe "結果のファイル出力" -Tag Io {
 
         It "前の出力が強制終了で残した .part も、次の出力の始めに消える" {
             [System.IO.File]::WriteAllText("$out.part", "古い", ${utf8Bom})
-            $request = newExportRequest (newSource $own $result $dir) $out @($result.Hits) "" "多い" "csv"
+            $request = newExportRequest (newSource $own $result $dir) $out @((expandHitRuns $result.Runs)) "" "多い" "csv"
             invokeSearchExport $request
             $request.Outcome | Should -Be "Done"
             [System.IO.File]::Exists("$out.part") | Should -BeFalse
@@ -258,7 +258,7 @@ Describe "結果のファイル出力" -Tag Io {
 
         It "溢れの置き場所が使えないときは、本文の一時ファイルを出力先の横に作り、終わりに消す" {
             Mock testSearchOverflowRoot { return $false }
-            $request = newExportRequest (newSource $own $result $dir) $out @($result.Hits) "" "多い" "csv"
+            $request = newExportRequest (newSource $own $result $dir) $out @((expandHitRuns $result.Runs)) "" "多い" "csv"
             invokeSearchExport $request
             $request.Outcome | Should -Be "Done"
             [System.IO.File]::Exists("$out.part") | Should -BeFalse
@@ -267,7 +267,7 @@ Describe "結果のファイル出力" -Tag Io {
 
         It "書いている途中で想定外の例外が出たら Failed にして、理由を残し、前のファイルを残す" {
             Mock writeSearchExportBody { throw "壊れた" }
-            $request = newExportRequest (newSource $own $result $dir) $out @($result.Hits) "" "多い" "csv"
+            $request = newExportRequest (newSource $own $result $dir) $out @((expandHitRuns $result.Runs)) "" "多い" "csv"
             invokeSearchExport $request
             $request.Outcome | Should -Be "Failed"
             $request.Error | Should -Be "壊れた"
@@ -278,7 +278,7 @@ Describe "結果のファイル出力" -Tag Io {
         It "溢れの置き場所が消えているときは、表の分だけを書き、理由は OverflowFailed" {
             $source = newSource $own $result ""
             $source.Truncated = $true
-            $request = newExportRequest $source $out @($result.Hits) "" "多い" "csv"
+            $request = newExportRequest $source $out @((expandHitRuns $result.Runs)) "" "多い" "csv"
             invokeSearchExport $request
             $request.Outcome | Should -Be "Done"
             $request.Scope | Should -Be "HeadOnly"
@@ -289,7 +289,7 @@ Describe "結果のファイル出力" -Tag Io {
         It "xlsx: ほかのアプリが開いているときは Locked にして、前のファイルを残す" {
             $xlsx = Join-Path $own.Dir "out.xlsx"
             [System.IO.File]::WriteAllText($xlsx, "前の結果", ${utf8Bom})
-            $request = newExportRequest (newSource $own $result $dir) $xlsx @($result.Hits) "" "多い" "xlsx"
+            $request = newExportRequest (newSource $own $result $dir) $xlsx @((expandHitRuns $result.Runs)) "" "多い" "xlsx"
             $lock = [System.IO.File]::Open($xlsx, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
             try {
                 invokeSearchExport $request
@@ -330,7 +330,7 @@ Describe "結果のファイル出力" -Tag Io {
 
         It "出力先がまだ無くても書ける" {
             [System.IO.File]::Delete($out)
-            $request = newExportRequest (newSource $own $result $dir) $out @($result.Hits) "" "多い" "csv"
+            $request = newExportRequest (newSource $own $result $dir) $out @((expandHitRuns $result.Runs)) "" "多い" "csv"
             invokeSearchExport $request
             $request.Outcome | Should -Be "Done"
             [System.IO.File]::Exists($out) | Should -BeTrue
@@ -338,7 +338,7 @@ Describe "結果のファイル出力" -Tag Io {
 
         It "出力先の置き場が open_copy でなければ（リンクなど）、書かずに Failed にして知らせる" {
             $tmpRoot = Join-Path $own.Dir "tmp"
-            $request = newExportRequest (newSource $own $result $dir) $out @($result.Hits) "" "多い" "csv" $tmpRoot
+            $request = newExportRequest (newSource $own $result $dir) $out @((expandHitRuns $result.Runs)) "" "多い" "csv" $tmpRoot
             invokeSearchExport $request
             $request.Outcome | Should -Be "Failed"
             $request.Error | Should -BeLike "出力先の置き場が使えません*"
@@ -349,7 +349,7 @@ Describe "結果のファイル出力" -Tag Io {
             $tmpRoot = Join-Path $own.Dir "tmp"
             $copyDir = Join-Path (Join-Path $tmpRoot (getMachineKey)) "open_copy"
             $target = Join-Path (Join-Path $copyDir "abcdef123456") "検索結果.csv"
-            $request = newExportRequest (newSource $own $result $dir) $target @($result.Hits) "" "多い" "csv" $tmpRoot
+            $request = newExportRequest (newSource $own $result $dir) $target @((expandHitRuns $result.Runs)) "" "多い" "csv" $tmpRoot
             invokeSearchExport $request
             $request.Outcome | Should -Be "Done"
             [System.IO.File]::Exists($target) | Should -BeTrue

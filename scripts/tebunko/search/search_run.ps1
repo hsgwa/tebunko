@@ -108,7 +108,7 @@ function newSearchRequest {
     # 検索の要求 1 つを作る（画面が作り、検索の司令のスレッド（SearchService）が invokeSearchRequest で実行する）。
     # 画面と司令のスレッドの両方から読み書きするため、Synchronized の hashtable にする。
     #   画面が書く: 検索条件・Stop（取り消し）
-    #   司令が書く: Narrowed（前の検索のヒットだけを照合し直して答えたか）・NarrowReason（絞るかの判定の符号。前の検索の記録を渡さないときは $null）・Queue（ヒット）・Done / Total / IndexTotal / Scanned（進み具合）・Folders・GramUsed（gram 索引で絞ったか）・Truncated（上限を超えた。数えている途中でも立つ）/ HitTotal（上限を超えた分も含む件数。数えている途中は今までの件数。中止・総数の時間切れは -1）/ CountTimeout / OverflowDir（溢れの置き場所。書き溜めないときは空）/ OverflowFailed / Cancelled / Error・Skipped（飛ばした本文インデックスのファイルのパス）・Finished
+    #   司令が書く: Narrowed（前の検索のヒットだけを照合し直して答えたか）・NarrowReason（絞るかの判定の符号。前の検索の記録を渡さないときは $null）・Queue（ヒット。searchContentIndex が返す場所ごとのまとまり〈hashtable。LineNumbers・Lines を持つ〉を 1 つずつ入れる）・Done / Total / IndexTotal / Scanned（進み具合）・Folders・GramUsed（gram 索引で絞ったか）・Truncated（上限を超えた。数えている途中でも立つ）/ HitTotal（上限を超えた分も含む件数。数えている途中は今までの件数。中止・総数の時間切れは -1）/ CountTimeout / OverflowDir（溢れの置き場所。書き溜めないときは空）/ OverflowFailed / Cancelled / Error・Skipped（飛ばした本文インデックスのファイルのパス）・Finished
     #   workDir: gram 索引を探すワークスペース（司令のスレッドは lib.ps1 を読み込んだときのワークスペースを覚えているため、画面から渡す）
     param (
         [string]$word,
@@ -240,10 +240,10 @@ function invokeSearchRequestBody {
             -fileFilter $request.FileFilter -cache $cache -includeShapes $request.IncludeShapes -includeComments $request.IncludeComments -pool $pool `
             -overflowDir $request.OverflowDir `
             -onProgress {
-            param ($done, $total, $newHits, $hitTotal)
-            foreach ($hit in $newHits) {
-                $request.Queue.Enqueue($hit)
-                if ($null -ne $collected) { $collected.Add($hit) }
+            param ($done, $total, $newRuns, $hitTotal)
+            foreach ($run in $newRuns) {
+                $request.Queue.Enqueue($run)
+                if ($null -ne $collected) { $collected.Add($run) }
             }
             $request.Total = $total
             $request.Done = $done

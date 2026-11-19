@@ -160,7 +160,9 @@ try {
     $files = $found[$filesName]
     $cache = newTsvTextCache
     $result = & $searchIndex $Word $files (!$Regex) 10000 -cache $cache
-    $hits = @($result.Hits | Select-Object -First $Count)
+    # 新しい版は場所ごとのまとまり（Runs）を返す。古い版（Hits）も測れるよう、あれば Runs を 1 件ずつの値にする
+    $allHits = if ($result.ContainsKey("Runs")) { expandHitRuns $result.Runs } else { $result.Hits }
+    $hits = @($allHits | Select-Object -First $Count)
     if ($hits.Count -eq 0) { throw "ヒットが無いため、プレビューを測れません（語: $Name）。" }
     $afterSearch = getMemory
     $cacheChars = [long]$cache.Chars[0]

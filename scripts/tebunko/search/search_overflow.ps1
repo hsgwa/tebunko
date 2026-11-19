@@ -117,19 +117,41 @@ function newSearchOverflowWriter {
 }
 
 function writeSearchOverflowHits {
-    # 司令が、表に入らなかった行（searchContentIndex の Hits の要素）を、溢れの head のファイルに書き足す。
+    # 司令が、表に入らなかった行（searchContentIndex が返すまとまり〈Runs の要素〉の一覧）を、溢れの head のファイルに書き足す。
     # writer は newSearchOverflowWriter の結果（書き始めは呼ぶ側が決める）。書けなければ $false（writer は閉じない）
     param (
         $writer,
-        $hits
+        $runs
     )
 
     try {
-        foreach ($hit in $hits) {
-            $writer.WriteLine("$($hit.RelDir)`t$($hit.Book)`t$($hit.Location)`t$($hit.LineNumber)`t$($hit.Line)")
+        foreach ($run in $runs) {
+            $prefix = "$($run.RelDir)`t$($run.Book)`t$($run.Location)`t"
+            for ($i = 0; $i -lt $run.Lines.Count; $i++) {
+                $writer.WriteLine("$prefix$($run.LineNumbers[$i])`t$($run.Lines[$i])")
+            }
         }
         return $true
     } catch {
+        return $false
+    }
+}
+
+function resetSearchOverflowWriter {
+    # 溢れのファイルを、そのファイルの始めの位置（startPos）まで戻す。Position も戻さないと次の書き込みが穴を作る。
+    # 戻せたら $true。戻せなければ writer を閉じて $false（呼ぶ側は writer を $null にし、書き溜めをやめる）。照合のスレッドからも呼ぶため、.NET だけで書く
+    param (
+        $writer,
+        [long]$startPos
+    )
+
+    try {
+        $writer.Flush()
+        $writer.BaseStream.SetLength($startPos)
+        $writer.BaseStream.Position = $startPos
+        return $true
+    } catch {
+        try { $writer.Dispose() } catch { }
         return $false
     }
 }
