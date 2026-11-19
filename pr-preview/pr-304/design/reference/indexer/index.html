@@ -2769,6 +2769,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2897,6 +2903,90 @@
     
   
     画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス管理）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（検索と検索結果）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス作成の実行）
   
 
     
@@ -3280,7 +3370,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_20" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3302,14 +3392,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_20" id="__nav_3_7_20_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_17">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_20">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4952,7 +5042,7 @@
 <tr>
 <td><code>DispatchNext</code></td>
 <td>–</td>
-<td><code>@{Kind=Abandoned／Vanished／Dispatched; ...}</code> / <code>$null</code></td>
+<td><code>@{Kind=Postponed／Vanished／Dispatched; ...}</code> / <code>$null</code></td>
 <td>並びの先から、<code>selectIngestWorker</code> で渡し先のワーカーを決め、空きがあるファイルを 1 つ選ぶ（渡し先は <code>Worker</code>。ワーカーを使うときは <code>Task.Office</code> に Office が要るかも入れる）</td>
 </tr>
 <tr>
@@ -4976,8 +5066,8 @@
 <tr>
 <td><code>TakeAbandonedWorker</code></td>
 <td>–</td>
-<td><code>@{Worker; Entries}</code> / <code>$null</code></td>
-<td>諦めたワーカーを 1 つ取り出す（取り込み中・列のファイルといっしょに返し、取り込み中から外す）</td>
+<td>後回しの値（<code>@{Kind=Postponed; Entry; Reason}</code>）の並び（無ければ空）</td>
+<td>諦めたワーカー全部の取り込み中・列のファイルを、取り込み中から外して後回しの値で返す</td>
 </tr>
 <tr>
 <td><code>StopIfRequested</code></td>
@@ -5387,7 +5477,7 @@
 <td><code>getIndexFileEntries</code></td>
 <td>indexName, labels, path</td>
 <td><code>@{Rows; Done; Failed; Pending}</code></td>
-<td>あるインデックスに取り込んだファイルの一覧（取り込み一覧のそのインデックスの行。<code>readStatusFile</code> で読む）を、画面の表に出す形で返す。Rows は <code>@{RelPath（インデックス名を除いた相対パス）; UpdatedText; Kind（Done / Failed / Pending。失敗は</code>testStatusRowFailed<code>と同じ数え方）; StateText（labels から）; Reason; SourcePath（取り込み一覧に記録した元のフォルダから組んだ元のファイルのパス。記録が無ければ空）}</code> の配列（相対パスの順）。画面の裏の仕事で動く</td>
+<td>あるインデックスに取り込んだファイルの一覧（取り込み一覧のそのインデックスの行。<code>readStatusFile</code> で読む）を、画面の表に出す形で返す。Rows は <code>IndexFileEntry</code>（プロパティだけの class。画面側は型でなく名前で読む）の配列。各行のプロパティは <code>{RelPath（インデックス名を除いた相対パス）; UpdatedText; Kind（Done / Failed / Pending。失敗は</code>testStatusRowFailed<code>と同じ数え方）; StateText（labels から）; Reason; SourcePath（取り込み一覧に記録した元のフォルダから組んだ元のファイルのパス。記録が無ければ空）}</code>（相対パスの順）。画面の裏の仕事で動く</td>
 <td><a href="../../gui/index-tab/">インデックス一覧の管理</a>の［ファイルの一覧］</td>
 <td>詳細欄</td>
 </tr>

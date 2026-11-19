@@ -2767,6 +2767,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2895,6 +2901,90 @@
     
   
     画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス管理）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（検索と検索結果）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス作成の実行）
   
 
     
@@ -3278,7 +3368,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_20" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3300,14 +3390,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_20" id="__nav_3_7_20_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_17">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_20">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -5006,8 +5096,8 @@
 <tr>
 <td><code>testWorkerAbandoned</code> / <code>IngestDispatcher.TakeAbandonedWorker</code></td>
 <td>– / –</td>
-<td>bool / <code>@{ Worker; Entries }</code> または <code>$null</code></td>
-<td>取り込みのスレッドが自分のワーカーが諦められたか見る / 司令がまだ後回しにしていない、諦められたワーカーと、そのワーカーで取り込み中だったファイルを、取り込み中から外して返す。諦められたワーカーのファイルは取り込まず、理由付きの失敗にする（状態は「未取り込み」のまま）</td>
+<td>bool / 後回しの値（<code>@{ Kind = "Postponed"; Entry; Reason }</code>）の並び（無ければ空）</td>
+<td>取り込みのスレッドが自分のワーカーが諦められたか見る / 司令がまだ後回しにしていない、諦められたワーカー全部の、取り込み中だったファイルを、取り込み中から外して後回しの値で返す。諦められたワーカーのファイルは取り込まず、理由付きの失敗にする（状態は「未取り込み」のまま）</td>
 <td><a href="../../indexing/ingest-list/">取り込み一覧</a></td>
 <td><code>invokeIngestTask</code>・<code>IngestDispatcher</code>・<code>invokeIndexerBody</code></td>
 </tr>
