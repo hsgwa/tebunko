@@ -90,11 +90,11 @@
 | コンストラクタ | targets, apps, bookFolders, folderByName, carried, options | – | 取り込み対象（apps はファイルごとに最初に要る Office のアプリ。要らなければ空）と設定を受け取る。必要な設定（`LookAhead`・`WorkerScript`・`PostponedReasonInUse`・`PostponedReasonRunning`）が足りなければ、その名前を書いて失敗する。省略できる `TestPath`（`{ param($path, $kind) }`。`$kind` は `File` か `Folder`）で、元のファイル・フォルダの有無の調べ方を差し替えられる |
 | `Start` | workerCount, settings | – | ワーカーごとの列を持つ入れ物を作る（スレッドは、そのワーカーに初めて渡すときに始める。持ち主のアプリ・渡してある数・諦めたかの状態もワーカーごとに持つ）。0 のときは作らず、司令のスレッドで取り込む |
 | `BeginPass` | – | – | 渡す繰り返しの 1 回分を始める（先読みの範囲を数え直す） |
-| `DispatchNext` | – | `@{Kind=Abandoned／Vanished／Dispatched; ...}` / `$null` | 並びの先から、`selectIngestWorker` で渡し先のワーカーを決め、空きがあるファイルを 1 つ選ぶ（渡し先は `Worker`。ワーカーを使うときは `Task.Office` に Office が要るかも入れる） |
+| `DispatchNext` | – | `@{Kind=Postponed／Vanished／Dispatched; ...}` / `$null` | 並びの先から、`selectIngestWorker` で渡し先のワーカーを決め、空きがあるファイルを 1 つ選ぶ（渡し先は `Worker`。ワーカーを使うときは `Task.Office` に Office が要るかも入れる） |
 | `Submit` | step | – | 選んだファイルをワーカーの列に渡す |
 | `SetInlineResult` | result | – | スレッドを使わないとき、司令が自分のスレッドで取り込んだ結果を `InlineResult` に置く（次の `Receive` が返して空にする） |
 | `Receive` | – | `@{Kind=Completed／Postponed／RerouteAbandoned; ...}` / `$null` | 結果を 1 つ受け取る |
-| `TakeAbandonedWorker` | – | `@{Worker; Entries}` / `$null` | 諦めたワーカーを 1 つ取り出す（取り込み中・列のファイルといっしょに返し、取り込み中から外す） |
+| `TakeAbandonedWorker` | – | 後回しの値（`@{Kind=Postponed; Entry; Reason}`）の並び（無ければ空） | 諦めたワーカー全部の取り込み中・列のファイルを、取り込み中から外して後回しの値で返す |
 | `StopIfRequested` | requested（bool） | bool | 中止を求められ、渡していないファイルがあるとき、今回初めて止めた場合だけ `$true` を返し、以後は渡さない（残りの件数は `Remaining`） |
 | `GetInflightCount` | relPath | 件数 | 取り込み中のファイルを続けて取り込みを始めた回数（今の分を含む。取り込み中でなければ 0。ジャーナルの「始」に書く） |
 | `Stop` | – | – | 列を閉じ、諦めていないワーカーが終わるのを待ってから片づける。諦めたワーカーは待たず、止める依頼だけを出す |
@@ -173,7 +173,7 @@
 | `testIndexName` | name, usedNames | string（使えれば空） | 新しく付けるインデックス名として使えるか調べ、使えない理由を返す（フォルダ名の決め `getFolderNameProblemText`（空・前後の空白・255 文字超・使えない文字・末尾の `.`・Windows の予約語）に、ほかと重複を足す）。`newIndexName` が作る名前は必ず通る。`IndexCatalog.RenameIndex` は新しい名前を、これで確かめる | [名前とフォルダパスの編集](../gui/index-tab.md#名前とフォルダパスの編集) | 画面 |
 | `testStoredIndexName` | name | string（使えれば空） | 保存してあるインデックス名（設定・取り込み一覧・状態のフォルダから読んだもの）として使えるか調べる。`testIndexName` との違いは、Windows の予約名（`aux.backup`・`CON.txt` など）を拒まないこと（既にある実在のフォルダの名前を空にせず使い続けるため）。置き場の外へ出る名前・最後の `.` や前後の空白・使えない文字は拒む。`IndexCatalog.RenameIndex` は元の名前を、`RemoveIndex` は消す前に名前を、これで確かめる（通らない名前は何も動かさず例外にする） | 同上 | testIndexRelPath, assignIndexNames, `IndexCatalog` |
 | `testStatusRowFailed` | row | bool | 取り込み一覧の行を失敗に数えるか。状態が `失敗` の行と、`未取り込み` でエラーの列に理由がある行（利用者の PowerPoint のために取り込めなかったファイル。次の更新で取り込むため状態は `未取り込み` のまま） | [取り込み一覧](../indexing/ingest-list.md) | `getIndexStats`・`getIndexingState` |
-| `getIndexFileEntries` | indexName, labels, path | `@{Rows; Done; Failed; Pending}` | あるインデックスに取り込んだファイルの一覧（取り込み一覧のそのインデックスの行。`readStatusFile` で読む）を、画面の表に出す形で返す。Rows は `@{RelPath（インデックス名を除いた相対パス）; UpdatedText; Kind（Done / Failed / Pending。失敗は `testStatusRowFailed` と同じ数え方）; StateText（labels から）; Reason; SourcePath（取り込み一覧に記録した元のフォルダから組んだ元のファイルのパス。記録が無ければ空）}` の配列（相対パスの順）。画面の裏の仕事で動く | [インデックス一覧の管理](../gui/index-tab.md)の［ファイルの一覧］ | 詳細欄 |
+| `getIndexFileEntries` | indexName, labels, path | `@{Rows; Done; Failed; Pending}` | あるインデックスに取り込んだファイルの一覧（取り込み一覧のそのインデックスの行。`readStatusFile` で読む）を、画面の表に出す形で返す。Rows は `IndexFileEntry`（プロパティだけの class。画面側は型でなく名前で読む）の配列。各行のプロパティは `{RelPath（インデックス名を除いた相対パス）; UpdatedText; Kind（Done / Failed / Pending。失敗は `testStatusRowFailed` と同じ数え方）; StateText（labels から）; Reason; SourcePath（取り込み一覧に記録した元のフォルダから組んだ元のファイルのパス。記録が無ければ空）}`（相対パスの順）。画面の裏の仕事で動く | [インデックス一覧の管理](../gui/index-tab.md)の［ファイルの一覧］ | 詳細欄 |
 | `getWorkspaceIndexFolders` | ws | `@{Name; Path}` の配列 | ワークスペースに残っているインデックスを名前と前回の元のフォルダの組で集める（取り込み一覧のフォルダの行は名前と Path、インデックスのフォルダ（`store\content\`・古い `content_index\`）の直下にだけあって行の無いものは Path を空にする）。設定から外れたまま残してあるものを含む | [名前とフォルダパスの編集](../gui/index-tab.md#名前とフォルダパスの編集) | `getImportUsedIndexNames`・画面（`refreshLeftoverIndexes`） |
 | `getIndexStats` | rows（readStatusFile の Rows） | 名前 → `@{Total; Done; Pending; Failed; LastIngested}` | 取り込み一覧の行をインデックス名ごとに集計する（一覧の「ファイル」「最終取り込み」。`未取り込み` でエラーがある行は `Failed` に数え、`Pending` に数えない） | [一覧の列](../gui/index-tab.md#一覧の列) | 画面（getIndexingState 経由） |
 | `getSearchIndexes` | dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath | `@{Name; Path; SourcePath}` の配列 | インデックスの一覧（`work\store\content` 直下のフォルダ 1 つがインデックス 1 つ）。並びは［インデックス管理］の一覧と同じで、一覧に無いもの（コピーしたインデックスなど）は名前順で後ろ。`SourcePath` は元のフォルダ（分からなければ空） | [インデックスの一覧](../search/index.md#インデックスの一覧getsearchindexes) | 画面（検索対象のツリー） |
