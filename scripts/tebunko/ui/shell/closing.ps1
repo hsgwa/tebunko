@@ -178,3 +178,9 @@
             enterIndexingStopFlow
         }
     })
+
+    # 閉じると決まったあとに、画面のスレッドの分割（startUiWork）のタイマーを残さない。
+    # Add_Closing に置かないのは、閉じるのを取りやめたとき（$e.Cancel = $true）に反映だけが止まるのを避けるため
+    $window.Add_Closed({
+        try { stopAllUiWork } catch { Write-Debug "$_" }
+    })
