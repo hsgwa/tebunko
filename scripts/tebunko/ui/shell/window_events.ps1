@@ -1,6 +1,29 @@
 ﻿# startGui の一部: ウィンドウのイベント（Activated・PreviewKeyDown・Loaded・ContentRendered）。startGui の中で読み込む。
 
+    function reloadTargetsIfChanged {
+        # 設定ファイルの印が変わったとき、クロール対象フォルダがほかの画面で変更されていれば読み直す。読み直したら $true
+        if ((getTargetsKey @(getTargetFolders)) -ne $script:savedTargets) {
+            loadTargets
+            setStatus "インデックス一覧がほかで変更されたため、読み直しました"
+            return $true
+        }
+        return $false
+    }
+
+    function checkSettingsStamp {
+        # 設定ファイルの今の印を前回と比べ、違うときだけ読み直しを調べる（印が同じなら getTargetFolders を呼ばない）
+        param ([string]$Stamp)
+
+        if ($Stamp -eq [string]$script:settingsStamp) {
+            return $false
+        }
+        $script:settingsStamp = $Stamp
+        return (reloadTargetsIfChanged)
+    }
+
     function onWindowActivated {
+        # 窓が前面に戻ったとき。設定ファイル・取り込み一覧は、見張り（file_watch.ps1）の合図があるときだけ調べる。
+        # 見張りが無い（ネットワーク・作れなかった）ときと、前に印を比べてから 60 秒たったとき（合図の取りこぼしの保険）も調べる
         if (!$script:startupLoaded) {
             return
         }
@@ -8,17 +31,43 @@
             return
         }
         safe {
-            # クロール対象フォルダがほかの画面で変更されていれば読み直す
-            if ((getTargetsKey @(getTargetFolders)) -ne $script:savedTargets) {
-                loadTargets
-                setStatus "インデックス一覧がほかで変更されたため、読み直しました"
+            $settingsSignal = testFileWatchSignaled $script:settingsWatch
+            $statusSignal = testFileWatchSignaled $script:statusWatch
+            $due = ($null -eq $script:lastStampCheck) -or (((Get-Date) - $script:lastStampCheck).TotalSeconds -ge 60)
+            $compared = $false
+            $changed = $false
+            if ($script:settingsOnNetwork) {
+                # ネットワークの設定ファイルは、画面のスレッドで触らず、裏で印を取る（保険の間隔でだけ）
+                if ($due) {
+                    $compared = $true
+                    startJob {
+                        param ($path)
+                        getFileStamp $path
+                    } @([string]${settingsFile}) {
+                        param ($output, $errorText)
+                        if (!$errorText -and $output -and $output.Count -gt 0) {
+                            if (checkSettingsStamp ([string]$output[0])) {
+                                updateSearchTarget
+                            }
+                        }
+                    } (getWorkspaceJobQueue @([string]${settingsFile}))
+                }
+            } elseif ($settingsSignal -or $null -eq $script:settingsWatch -or $due) {
+                $compared = $true
+                $changed = checkSettingsStamp (getFileStamp ${settingsFile})
             }
             # フォルダの有無は別スレッドで調べる（届かないネットワークのフォルダで画面が固まらないように）
             refreshFolderStatus
-            if (!(isIndexing)) {
-                refreshIndexingState
+            if (!(isIndexing) -and ($statusSignal -or $null -eq $script:statusWatch -or $due)) {
+                $compared = $true
+                refreshIndexingState -SkipIfUnchanged
             }
-            updateSearchTarget
+            if ($compared) {
+                $script:lastStampCheck = Get-Date
+            }
+            if ($changed) {
+                updateSearchTarget
+            }
         }
     }
 
