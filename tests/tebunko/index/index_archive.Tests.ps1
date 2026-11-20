@@ -800,6 +800,7 @@ Describe "importIndex" -Tag Io {
         [System.IO.File]::ReadAllBytes($fixtureB.ContentIndexPath) | Should -Be $contentIndexBefore
         Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\source_folder.txt") | Should -Be $false
         Test-Path -LiteralPath (Join-Path $wsB.PublishDir "import") | Should -Be $false
+        Test-Path -LiteralPath (Join-Path $wsB.PublishDir "keep_previous.txt") | Should -Be $false
         # 取り込み一覧は変わらない
         [System.IO.File]::ReadAllText($wsB.StatusFile) | Should -Be $statusBefore
         # 設定の並びと、ほかの項目・検索から外した記録が元に戻る
@@ -826,6 +827,7 @@ Describe "importIndex" -Tag Io {
         [System.IO.File]::ReadAllBytes($fixtureB.ContentIndexPath) | Should -Be $contentIndexBefore
         [System.IO.File]::ReadAllText($wsB.StatusFile) | Should -Be $statusBefore
         Test-Path -LiteralPath (Join-Path $wsB.PublishDir "import") | Should -Be $false
+        Test-Path -LiteralPath (Join-Path $wsB.PublishDir "keep_previous.txt") | Should -Be $false
         @(getTargetFolders $settingsB)[0].Path | Should -Be "C:\前の場所"
     }
 
@@ -846,6 +848,94 @@ Describe "importIndex" -Tag Io {
         [System.IO.File]::ReadAllBytes($fixtureB.ContentIndexPath) | Should -Be $contentIndexBefore
         @(getTargetFolders $settingsB)[0].Path | Should -Be "C:\前の場所"
         Test-Path -LiteralPath (Join-Path $wsB.PublishDir "import") | Should -Be $false
+        Test-Path -LiteralPath (Join-Path $wsB.PublishDir "keep_previous.txt") | Should -Be $false
+    }
+
+    It "戻す（moveDirectoryUnder が失敗）: <label>。退避を戻せなくても previous を消さず、文言に残した場所が入り、印を置く（throwSwapRestoreFailed）" -TestCases @(
+        @{ label = "経路 A（入れ替えが例外）・戻しが偽"; pathA = $true; restoreThrows = $false }
+        @{ label = "経路 A（入れ替えが例外）・戻しが例外"; pathA = $true; restoreThrows = $true }
+        @{ label = "経路 B（取り込み一覧が失敗）・戻しが偽"; pathA = $false; restoreThrows = $false }
+        @{ label = "経路 B（取り込み一覧が失敗）・戻しが例外"; pathA = $false; restoreThrows = $true }
+    ) {
+        param ($label, $pathA, $restoreThrows)
+        $tag = "$([int]$pathA)$([int]$restoreThrows)"
+        $fixtureA = newIndexFixture "$TestDrive\keep_a_$tag" "営業" "C:\共有\営業部"
+        $dest = "$TestDrive\keep_$tag.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+
+        $fixtureB = newIndexFixture "$TestDrive\keep_b_$tag" "営業" "C:\前の場所"
+        $wsB = $fixtureB.Workspace
+        $target = Join-Path $wsB.IndexDir "営業"
+        $relative = $fixtureB.ContentIndexPath.Substring($target.Length)
+        $contentIndexBefore = [System.IO.File]::ReadAllBytes($fixtureB.ContentIndexPath)
+        $previous = Join-Path $wsB.PublishDir "import\previous"
+
+        if ($pathA) {
+            # 2 回目の呼び（newDir → targetDir）を例外にする
+            Mock moveDirectoryUnder { throw "入れ替えを移せない" } -ParameterFilter { $destination -eq $target -and $source -ne $previous }
+        } else {
+            Mock writeTextLinesAtomic { throw "取り込み一覧を書けない" } -ParameterFilter { $path -eq $wsB.StatusFile }
+        }
+        # 3 回目の呼び（previous → targetDir）を失敗させる
+        if ($restoreThrows) {
+            Mock moveDirectoryUnder { throw "戻しを移せない" } -ParameterFilter { $destination -eq $target -and $source -eq $previous }
+        } else {
+            Mock moveDirectoryUnder { return $false } -ParameterFilter { $destination -eq $target -and $source -eq $previous }
+        }
+
+        $thrown = $null
+        try {
+            importIndex $dest ${importCollisionOverwrite} "" "C:\新しい場所" $wsB $fixtureB.SettingsPath | Out-Null
+        } catch {
+            $thrown = $_.Exception.Message
+        }
+
+        $thrown | Should -BeLike "*入れ替えを戻せませんでした*"
+        $thrown | Should -BeLike "*${previous}*"
+        $thrown | Should -BeLike "*${target}*"
+        $thrown | Should -BeLike "*$(if ($pathA) { '入れ替えを移せない' } else { '取り込み一覧を書けない' })*"
+        [System.IO.File]::ReadAllBytes((Join-Path $previous $relative)) | Should -Be $contentIndexBefore
+        $marker = Join-Path $wsB.PublishDir "keep_previous.txt"
+        [System.IO.File]::ReadAllLines($marker)[0] | Should -Be $previous
+        @(Get-ChildItem -LiteralPath (Join-Path $wsB.PublishDir "import") -Force | ForEach-Object { $_.Name }) | Should -Be @("previous")
+    }
+
+    It "戻す（TargetDir を消せない）: 戻しの前の削除が失敗しても previous が残る（removeImportWorkDirKeeping が previous 以外だけ消す）" {
+        $fixtureA = newIndexFixture "$TestDrive\keep_rm_a" "営業" "C:\共有\営業部"
+        $dest = "$TestDrive\keep_rm.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+
+        $fixtureB = newIndexFixture "$TestDrive\keep_rm_b" "営業" "C:\前の場所"
+        $wsB = $fixtureB.Workspace
+        $target = Join-Path $wsB.IndexDir "営業"
+        $relative = $fixtureB.ContentIndexPath.Substring($target.Length)
+        $contentIndexBefore = [System.IO.File]::ReadAllBytes($fixtureB.ContentIndexPath)
+        $previous = Join-Path $wsB.PublishDir "import\previous"
+
+        Mock writeTextLinesAtomic { throw "取り込み一覧を書けない" } -ParameterFilter { $path -eq $wsB.StatusFile }
+        Mock removeDirectoryUnder { return $false } -ParameterFilter { $path -eq $target }
+        { importIndex $dest ${importCollisionOverwrite} "" "C:\新しい場所" $wsB $fixtureB.SettingsPath } | Should -Throw "*入れ替えを戻せませんでした*"
+
+        [System.IO.File]::ReadAllBytes((Join-Path $previous $relative)) | Should -Be $contentIndexBefore
+        Test-Path -LiteralPath (Join-Path $wsB.PublishDir "keep_previous.txt") | Should -Be $true
+        @(Get-ChildItem -LiteralPath (Join-Path $wsB.PublishDir "import") -Force | ForEach-Object { $_.Name }) | Should -Be @("previous")
+    }
+
+    It "取り込みの始め: publish\<PID> に keep_previous.txt があれば、何も消さずに throw し、文言に残した場所が入る（assertNoKeptPrevious）" {
+        $fixtureA = newIndexFixture "$TestDrive\keep_start_a" "営業" "C:\共有\営業部"
+        $dest = "$TestDrive\keep_start.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+
+        $wsB = [Workspace]::new("$TestDrive\keep_start_b")
+        $previous = Join-Path $wsB.PublishDir "import\previous"
+        [System.IO.Directory]::CreateDirectory($previous) | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $previous "元.txt"), "元のインデックス")
+        [System.IO.File]::WriteAllText((Join-Path $wsB.PublishDir "keep_previous.txt"), "$previous`r`n")
+
+        { importIndex $dest ${importCollisionRename} "" "D:\別の場所\営業部" $wsB "$TestDrive\keep_start_b\setting.config" } | Should -Throw "*${previous}*"
+
+        [System.IO.File]::ReadAllText((Join-Path $previous "元.txt")) | Should -Be "元のインデックス"
+        Test-Path -LiteralPath $wsB.IndexDir | Should -Be $false
     }
 
     It "インポート後にインデックス作成の名前の割り当てを通しても、<label>: どのインデックスも消えず、設定・取り込み一覧・content_index が一致する" -TestCases @(
@@ -929,6 +1019,7 @@ Describe "importIndex" -Tag Io {
         @(getTargetFolders $fixtureB.SettingsPath | ForEach-Object { "$($_.Name)|$($_.Path)" }) | Should -Be @("営業|C:\共有\営業部")
         Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業(2)") | Should -Be $false
         Test-Path -LiteralPath (Join-Path $wsB.PublishDir "import") | Should -Be $false
+        Test-Path -LiteralPath (Join-Path $wsB.PublishDir "keep_previous.txt") | Should -Be $false
     }
 
     It "検索だけのインデックスと同じ名前: 上書きでインポートすると indexSources から外れ、targetFolders に入る" {
