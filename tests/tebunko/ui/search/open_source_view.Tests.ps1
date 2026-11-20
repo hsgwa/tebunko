@@ -349,3 +349,9 @@ Describe "getDefaultExportName" -Tag Unit {
         getDefaultExportName $word ([datetime]"2026-10-22 10:30:05") | Should -Be $expected
     }
 }
+
+Describe "getSourceFolderShowFailedStatus" -Tag Unit {
+    It "パスを入れて、見せられなかったと伝える" {
+        getSourceFolderShowFailedStatus "C:\data\見積.xlsx" | Should -Be "エクスプローラーで元のファイルを見せられませんでした：C:\data\見積.xlsx"
+    }
+}
