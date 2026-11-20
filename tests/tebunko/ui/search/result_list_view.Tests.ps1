@@ -167,6 +167,39 @@ Describe "getNextRowLimit" -Tag Unit {
     }
 }
 
+Describe "getExpandRowLimits" -Tag Unit {
+    It "getExpandRowLimits: 合計が上限以下なら全部 0" {
+        (getExpandRowLimits @(100, 200) 5000) -join "," | Should -Be "0,0"
+    }
+    It "getExpandRowLimits: 合計が上限を超えるなら上限をファイル数で割った数" {
+        $limits = getExpandRowLimits @(1..100 | ForEach-Object { 1000 }) 5000
+        $limits.Count | Should -Be 100
+        @($limits | Select-Object -Unique) | Should -Be @(50)
+    }
+    It "getExpandRowLimits: ファイル数が上限より多くても 1 件は出す" {
+        $limits = getExpandRowLimits @(1..10000 | ForEach-Object { 10 }) 5000
+        $limits.Count | Should -Be 10000
+        @($limits | Select-Object -Unique) | Should -Be @(1)
+    }
+    It "getExpandRowLimits: 1 ファイルあたりは groupRowLimit を超えない" {
+        (getExpandRowLimits @(100000, 100000) 5000)[0] | Should -Be 1000
+    }
+}
+
+Describe "totalRowLimit を超えるときの並べ替え" -Tag Unit {
+    It "getSortRowTarget: 合計が上限を超えるなら 1" {
+        getSortRowTarget 500 1000 100000 | Should -Be 1
+        getSortRowTarget 500 1000 0 | Should -Be 500
+    }
+    It "testSortByHitOrder" -ForEach @(
+        @{ hits = 1001; total = 0; expected = $true }
+        @{ hits = 500; total = 100000; expected = $true }
+        @{ hits = 500; total = 3000; expected = $false }
+    ) {
+        testSortByHitOrder $hits $total | Should -Be $expected
+    }
+}
+
 Describe "getSortRowTarget" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "上限以下なら並べ替えるので全件"; hits = 1000; expected = 1000 }
