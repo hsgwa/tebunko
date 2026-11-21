@@ -118,6 +118,27 @@ function newGuiDefaultWorkspace {
     return $path
 }
 
+function setGuiToolReadOnly {
+    # ツールのフォルダに、今の利用者がファイル・フォルダを作れないようにする（Program Files に置いたときと同じく書き込めない状態）。
+    # 付けたときは、外すときの規則を返す。外すときは -Restore にその規則を渡す（外し忘れると $TestDrive が消せないので、AfterAll で必ず外す）
+    param (
+        [string]$Dir,
+        $Restore = $null
+    )
+
+    $acl = Get-Acl -LiteralPath $Dir
+    if ($Restore) {
+        [void]$acl.RemoveAccessRule($Restore)
+        Set-Acl -LiteralPath $Dir -AclObject $acl
+        return
+    }
+    $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+        [System.Security.Principal.WindowsIdentity]::GetCurrent().User, "CreateFiles, CreateDirectories", "Deny")
+    $acl.AddAccessRule($rule)
+    Set-Acl -LiteralPath $Dir -AclObject $acl
+    return $rule
+}
+
 function writeGuiConfig {
     param ([string]$Tool, $Config)
     [IO.File]::WriteAllText("$Tool\setting.config", (ConvertTo-Json -InputObject $Config -Depth 5), (New-Object Text.UTF8Encoding($false)))
