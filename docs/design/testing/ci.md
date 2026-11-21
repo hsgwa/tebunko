@@ -156,6 +156,8 @@ git push origin v0.1.0
 - 手元で見るときは次のとおり（生成物は `work/site/`）
 
 ```
-pip install --require-hashes -r tools/mkdocs/requirements.txt
-mkdocs serve -f tools/mkdocs/mkdocs.yml
+.\tools\setup_dev.ps1    # work/mkdocs-venv を作り、requirements.txt を入れる（1 回）
+work\mkdocs-venv\Scripts\mkdocs serve -f tools/mkdocs/mkdocs.yml
 ```
+
+`tools/setup_dev.ps1` は上の `pip install --require-hashes -r tools/mkdocs/requirements.txt` を `work/mkdocs-venv` の中で行う。
