@@ -27,6 +27,8 @@ if ([string]::IsNullOrWhiteSpace($env:TEBUNKO_DEFAULT_WORKSPACE)) {
 initWorkspace
 # 決まったワークスペースが利用者の既定のワークスペースを指していたら、テストを始めずに止める（設定ファイルの workspaceFolder が利用者の既定のワークスペースを指す場合など）
 assertNotRealWorkspace $workspace.Dir
+# 使い捨ての外（設定ファイルの workspaceFolder が本物の別の場所を指す場合）も、書き込む前に止める
+assertWorkspaceIsolated $workspace.Dir
 . "$PSScriptRoot\tsv.ps1"
 . "$PSScriptRoot\workspace.ps1"
 . "$PSScriptRoot\cfb.ps1"

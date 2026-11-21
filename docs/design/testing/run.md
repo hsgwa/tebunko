@@ -34,7 +34,7 @@ flowchart LR
 | 守り | 内容 |
 |---|---|
 | `tests/run.ps1` | Pester の前に使い捨てのフォルダを作って変数に入れる。入れた場所が既定のワークスペースの場所と同じかその下なら、流さずに止まる。流す前後で既定のワークスペースの名前・大きさ・更新時刻（中身は読まない）を比べ、違えば失敗にする（どのタグでも） |
-| `tests/helpers/load.ps1` | `lib.ps1` を読む前に、変数が空なら使い捨てを入れる（`Invoke-Pester` を直接流したとき）。`initWorkspace` のあとで、決まったワークスペースが利用者の既定のワークスペースでないことを確かめる |
+| `tests/helpers/load.ps1` | `lib.ps1` を読む前に、変数が空なら使い捨てを入れる（`Invoke-Pester` を直接流したとき）。`initWorkspace` のあとで、決まったワークスペースが利用者の既定のワークスペースでないことと、使い捨ての中であること（`assertWorkspaceIsolated`。設定ファイルの `workspaceFolder` が外を指すと止まる）を確かめる |
 | `tests/gui/gui_helpers.ps1` | 画面の起動の前に、差し替えた既定の場所が利用者の既定のワークスペースでないことを確かめ、画面のプロセスにだけ変数を渡す。前後の写しに既定のワークスペースを含める |
 | `runIndexer`（`tests/helpers/indexer.ps1`） | `indexer.ps1` を動かす前に、取り込みの出力先が使い捨ての中であることを確かめる |
 | `tools/capture_screens.ps1` | 撮る前に使い捨てを入れ、撮り終えたあとで既定のワークスペースの前後を比べる |
