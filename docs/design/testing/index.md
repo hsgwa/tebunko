@@ -75,3 +75,5 @@ Excel・Word・PowerPoint の COM を使うインデックス作成は、実機�
 | インデックス作成後の Word・PowerPoint プロセス | 残らない（自動: 同上。利用者が使用中の Word には触れない） | インデックス作成 |
 
 テストデータの作り方と、各ファイルで確かめる内容は [tests/testdata/README.md](../../../tests/testdata/README.md) にある。
+
+手での確認・スクリーンショット用のサンプル（架空の会社の Excel・Word・PowerPoint を既定 40 件）は `tools/new_sample.ps1` で作る。使い方は [tests/testdata/README.md](../../../tests/testdata/README.md) の「サンプルとの違い」にある。
