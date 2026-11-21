@@ -85,6 +85,12 @@ param (
 )
 
 $ErrorActionPreference = "Stop"
+. ([WildcardPattern]::Escape("$PSScriptRoot\isolation\isolation_common.ps1".Replace('`', '``')))
+# 書き込み先が利用者の既定のワークスペースの中なら、書く前に止める
+assertToolPathsNotRealWorkspace @{ Work = $Work; Out = $Out }
+# 動かす間は、使い捨ての既定のワークスペースに差し替える（子のプロセス・Runspace にも引き継がれる）。終わったら元に戻し、既定のワークスペースの前後を比べる
+$workspaceGuard = startWorkspaceGuard -Prefix "tebunko-tool-ws"
+try {
 . ([WildcardPattern]::Escape("$PSScriptRoot\perf\perf_common.ps1".Replace('`', '``')))
 . ([WildcardPattern]::Escape("$PSScriptRoot\perf\ingest_common.ps1".Replace('`', '``')))
 if (!$Index -and !$Office -and $Xlsx -le 0 -and $Export -le 0) { throw "-Index・-Office・-Xlsx・-Export の少なくとも 1 つを指定してください。" }
@@ -795,3 +801,9 @@ if ($renderWords.Count -gt 0) {
 }
 [System.IO.File]::WriteAllLines((Join-Path $Out "summary.md"), [string[]]$md, $utf8)
 Write-Host "結果を書きました: summary.md・result.json・metrics.csv（と searches.csv・resource-*.csv）"
+} finally {
+    $guardReport = finishWorkspaceGuard $workspaceGuard
+}
+if ($guardReport.ExitCode -ne 0) {
+    throw ($guardReport.Lines -join "`n")
+}

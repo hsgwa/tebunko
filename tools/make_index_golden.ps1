@@ -28,6 +28,9 @@ param (
 )
 
 $ErrorActionPreference = "Stop"
+. ([WildcardPattern]::Escape("$PSScriptRoot\isolation\isolation_common.ps1".Replace('`', '``')))
+# 読み書きする場所が利用者の既定のワークスペースの中なら、書く前に止める（本物のワークスペースの中身が公開の見本に混ざらないように）
+assertToolPathsNotRealWorkspace @{ WorkspaceDir = $WorkspaceDir; ExportZip = $ExportZip; SampleDir = $SampleDir }
 
 # ワークスペースの中の置き場の名前は、本体の定義（クラスだけのファイル）から取る
 . ([WildcardPattern]::Escape("$PSScriptRoot\..\scripts\tebunko\core\workspace.ps1".Replace('`', '``')))
