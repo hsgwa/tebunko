@@ -4597,9 +4597,9 @@
 <tr>
 <td>画面の止まり（Gui。S13 の 5 つの操作。<a href="../gui-smoke/">gui-smoke.md</a>）</td>
 <td>操作 1 回のあとの、画面が応答しなかった一番長い時間（1 回の値）</td>
-<td>仮の値（CI の 5 回の測りで決め直す）</td>
+<td>E 0.25〜0.92 秒・A 0.33〜0.46 秒・B 0.53〜0.83 秒・D 7.81〜11.08 秒（検索が終わらなかった 2 回を除く 3 回）・C 0.06〜0.30 秒</td>
 <td>2 倍（0.5 秒単位。1.0 秒を下回らない）</td>
-<td><code>tests/gui/index_many.Tests.ps1</code> の <code>stallLimits</code>（C だけ <code>stallLimitC</code>）</td>
+<td>E 2.0 秒・A 1.0 秒・B 2.0 秒・D 22.5 秒・C 1.0 秒（<code>tests/gui/index_many.Tests.ps1</code> の <code>stallLimits</code>。C だけ <code>stallLimitC</code>）</td>
 </tr>
 </tbody>
 </table>
