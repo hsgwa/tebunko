@@ -1,5 +1,5 @@
 ﻿# 動いたワークフロー自身の結果を、PR のコメント（ワークフローごとに 1 件）に書く・書き換える
-# （.github\actions\pr-comment\action.yml から呼ぶ。各ワークフロー（test・title・docs・codeql・gui・perf-check）が、
+# （.github\actions\pr-comment\action.yml から呼ぶ。各ワークフロー（test・title・docs・codeql・perf-check）が、
 # 自分の結果を自分で書く。結果を 1 つのコメントにまとめる集約ワークフローは無い。個別のワークフローをやり直しても、
 # そのワークフロー自身のコメントだけが書き換わる）。
 #
