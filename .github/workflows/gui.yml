@@ -4,15 +4,14 @@
 # （tests\gui\*.Tests.ps1。タグ Gui。共通の関数は tests\gui\gui_helpers.ps1）。
 # test.yml には入れない。test.yml は release.yml から呼ばれ、release は test を待つため、画面のテストが不安定なときにリリースまで止まる。
 # 別のワークフローにすれば test と並んで動き、test の時間も延びない。
-# 必須チェックにはしない（必須チェックを変えるのは持ち主。しばらく安定して通ることを見てから諮る）。
-# paths の絞り込みは付けない（あとで必須チェックにしたとき、文書だけの PR で pending のまま残らないように）。
+# PR・main への push では動かさない。1 回に 12〜16 分かかるため、毎日 1 回 nightly.yml から呼ぶ（workflow_call）。
+# PR で確かめたいときは、PR のブランチを選んで手で動かす（workflow_dispatch。gui-repeat も一緒に動くので repeat を小さくする）。
 # tests\run.ps1 -Ci は使わない。カバレッジの下限を確かめるが、画面は別のプロセスで動くので計測できず、Gui だけを流すと下限を割るため。
 name: gui
 
 on:
-  push:
-    branches: [main]
-  pull_request:
+  # 毎日 1 回、nightly.yml から呼ぶ
+  workflow_call:
   # 繰り返しの流し（gui-repeat）を手で呼ぶ。gui-smoke も一緒に動く
   workflow_dispatch:
     inputs:
@@ -63,32 +62,6 @@ jobs:
           name: gui-smoke-results
           path: work/test/gui/
           if-no-files-found: ignore
-
-  # 結果を PR のコメントに書く（docs/design/testing/ci.md「結果を PR のコメントに書く」）。
-  # フォークの PR では書けないことがあるが、ジョブは失敗にしない（結果は Summary に残る）
-  pr-comment:
-    needs: [gui-smoke]
-    if: ${{ !cancelled() && github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - name: 既定のブランチの内容を取り出す（PR のコードは使わない）
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          persist-credentials: false
-          sparse-checkout: |
-            tools/pr_checks_comment.ps1
-            .github/actions/pr-comment/
-          sparse-checkout-cone-mode: false
-
-      - name: 結果を書く
-        uses: ./.github/actions/pr-comment
-        with:
-          workflow-key: gui
-          result: ${{ needs['gui-smoke'].result }}
 
   # 画面のスモークテストを繰り返し流し、稀な落ち方（閉じても終わらない・起動失敗の記録の待ち切れ・終了コード 5）の率と原因を測る
   # （docs/design/testing/ci.md「gui.yml」）。
