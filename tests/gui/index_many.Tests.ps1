@@ -119,8 +119,8 @@ Describe "S13 インデックスが <count> 件・ヒット約 1 万件のとき
         $script:indexCount = $count
         $script:perIndex = [Math]::Floor(9500 / $script:indexCount)
         $script:hitTotal = $script:perIndex * $script:indexCount
-        # 場面ごとの上限（秒。仮の値: 手元の測りの 2 倍ほど。CI の 5 回の測りで決め直す）。A: ツリーのチェック・B: 前面復帰・D: 絞り込みの 1 文字・E: インデックス一覧の行の選択
-        $script:stallLimits = @{ A = 1.0; B = 10.0; D = 25.0; E = 5.0 }
+        # 場面ごとの上限（秒。CI の gui.yml の 5 回の測りの最大の 2 倍。0.5 秒単位・1.0 秒を下回らない）。A: ツリーのチェック・B: 前面復帰・D: 絞り込みの 1 文字・E: インデックス一覧の行の選択
+        $script:stallLimits = @{ A = 1.0; B = 2.0; D = 22.5; E = 2.0 }
         if ($env:TEBUNKO_GUI_STALL_LIMIT) { foreach ($key in @($script:stallLimits.Keys)) { $script:stallLimits[$key] = [double]$env:TEBUNKO_GUI_STALL_LIMIT } }
         $script:tool = newGuiTool $TestDrive
         # インデックス N 件に、同じ語を 1 行だけ含むファイルを perIndex 件ずつ。ファイル名は「見積<番号>」（数字と漢字だけ）
@@ -225,7 +225,7 @@ Describe "S13 インデックスが <count> 件・ヒット約 1 万件のとき
             clickGui $S $S.Window "SearchButton" "検索"
             $hits = $script:hitTotal.ToString("N0")
             $searchClock = [Diagnostics.Stopwatch]::StartNew()
-            # 要約欄の文が 300 秒動かなくなったら止まったとみなす（全体は 900 秒まで。遅い CI の機械では 120 秒動かないことがあった）。30 秒ごとに文を記録し、遅いのか止まったのかを見分けられるようにする
+            # 要約欄の文が 120 秒動かなくなったら止まったとみなす（全体は 300 秒まで。CI の 5 回では検索は 33〜45 秒で終わり、終わらなかった回は 300 秒動かないまま戻らなかった）。30 秒ごとに文を記録し、遅いのか止まったのかを見分けられるようにする
             $lastText = ""
             $lastChange = [Diagnostics.Stopwatch]::StartNew()
             $lastLog = -30
@@ -235,7 +235,7 @@ Describe "S13 インデックスが <count> 件・ヒット約 1 万件のとき
                 if ($text -ne $lastText) { $lastText = $text; $lastChange.Restart() }
                 $now = $searchClock.Elapsed.TotalSeconds
                 if ($now - $lastLog -ge 30) { $lastLog = $now; Write-Host ("S13 D 検索中 {0} 秒: {1}" -f [Math]::Round($now), $text) }
-                if ($lastChange.Elapsed.TotalSeconds -ge 300 -or $now -ge 900) {
+                if ($lastChange.Elapsed.TotalSeconds -ge 120 -or $now -ge 300) {
                     throw ("[S13D-{0}・手順: 起動] 一致 {1} 件 が見つからなかった（{2} 秒たった。要約欄は {3} 秒動かず、最後の文: 「{4}」）" -f $script:indexCount, $hits, [Math]::Round($now), [Math]::Round($lastChange.Elapsed.TotalSeconds), $text)
                 }
                 Start-Sleep -Milliseconds 500
