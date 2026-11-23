@@ -262,10 +262,8 @@ function applyIndexingState {
     $script:indexingState = $state
 
     # 失敗したファイルは、詳細の［ファイルの一覧］が「失敗のみ」で開いて見せる（applyIndexStats が詳細も更新する）
+    # 後続の表示の置き直し（［更新］・再開・バッジなど）は、applyIndexStats の OnDone が毎回行う
     applyIndexStats $state.IndexStats (isIndexing) $state.Format
-    updateIndexingButton
-    updateIndexingResume
-    updateIndexTabBadge
 }
 
 function openIndexFilesDialog {
