@@ -70,7 +70,7 @@ PR と Issue のタイトルを `tools/check_commit_message.ps1 -Title` で確�
 - **`test.yml` には入れない。** `test.yml` は `release.yml` から呼ばれ、release は test を待つため、画面のテストが不安定なときにリリースまで止まる。別のワークフローにすれば `test` と並んで動き、`test` の時間も延びない
 - **必須チェックにしない。** 必須チェックを変えるのは持ち主で、しばらく安定して通ることを見てから諮る。必須にするときに、文書だけの PR で pending のまま残らないよう、`paths` の絞り込みは付けていない
 - `tests\run.ps1 -Ci` は使わない。カバレッジの下限を確かめるが、画面は別のプロセスで動くので計測できず、`Gui` だけを流すと下限を割るため
-- 1 回に 8〜9 分ほどかかる（場面ごとの秒数は各場面の出力に出る）。`timeout-minutes` は 20。同じブランチに続けて push したときは、古い実行を取り消す（`concurrency`）
+- 1 回に 16〜17 分ほどかかる（多くは S13 の場面。場面ごとの秒数は各場面の出力に出る）。`timeout-minutes` は 30。同じブランチに続けて push したときは、古い実行を取り消す（`concurrency`）
 - 落ちたときの材料（画面の画像・写した先の `gui_error_log.txt`・`indexing_log.txt`・窓の一覧）は、成否にかかわらず成果物 `gui-smoke-results`（`work/test/gui/<場面>/`）として保存する
 - **稀な落ち方の率は `gui-repeat` で測る。** `gui.yml` の `gui-repeat` は、画面を閉じる場面と起動失敗の記録のテスト（入力 `paths` の既定の 4 ファイル）を `repeat` 回（既定 50、上限 50）、5 本の matrix（`shard`）に分けて流す。1 本は `repeat / 5` 回で、`timeout-minutes` は 90。途中で落ちても続け、回ごとに「成功・終了コード 5・閉じない・記録の待ち切れ・そのほか」を数え、集計の job（`gui-repeat-summary`）が Summary に表で書く。落ちた回の材料は成果物 `gui-repeat-<shard>` に残る。手動（`workflow_dispatch`）のときだけ動き、PR・push の `gui-smoke` は変えない（手動で呼ぶと `gui-smoke` も一緒に動く）。測っている間に push すると `concurrency` で取り消されるので、push しない
 - **落ちたときの再実行は 1 回まで。** 2 回続けて同じ段階で落ちたら、偶然ではなく直すものとして扱う（画面の文言を変えたときは、探している文言のテストを直す）
