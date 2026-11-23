@@ -4594,6 +4594,13 @@
 <td>1.5 倍（10 秒単位）</td>
 <td>130 秒</td>
 </tr>
+<tr>
+<td>画面の止まり（Gui。S13 の 5 つの操作。<a href="../gui-smoke/">gui-smoke.md</a>）</td>
+<td>操作 1 回のあとの、画面が応答しなかった一番長い時間（1 回の値）</td>
+<td>E 0.25〜0.92 秒・A 0.33〜0.46 秒・B 0.53〜0.83 秒・D 7.81〜11.08 秒（検索が終わらなかった 2 回を除く 3 回）・C 0.06〜0.30 秒</td>
+<td>2 倍（0.5 秒単位。1.0 秒を下回らない）</td>
+<td>E 2.0 秒・A 1.0 秒・B 2.0 秒・D 22.5 秒・C 1.0 秒（<code>tests/gui/index_many.Tests.ps1</code> の <code>stallLimits</code>。C だけ <code>stallLimitC</code>）</td>
+</tr>
 </tbody>
 </table>
 <ul>
@@ -4601,6 +4608,7 @@
 <li><code>perf.yml</code> の数字は、構成が違う（取り込みの後に同じジョブで検索すると遅く出た回がある）ので、上限の元にしない。インクリメンタルサーチの目標（7,000 件規模で 0.1 秒前後）も上限にしない。今の main はこのデータで 0.3 秒ほどなので、上限にすると今の main で落ちる</li>
 <li>変え方: 速くした PR では、同じ決め方で下げてよい。上げるのは、ランナーが遅くなったなど、速さを落としていない理由があるときだけにする。理由と数字を PR 本文に書き、メンテナの了承を得る</li>
 <li>上限はランナー（4 コア）に合わせたもの。手元の PC で超えたときは、同じ PC で main を測って比べ、回帰かどうかを見る</li>
+<li>画面の止まり（S13）は <code>perf-check.yml</code> ではなく、<code>gui.yml</code> を手で流して 5 回測る（<code>workflow_dispatch</code> の入力を <code>repeat</code> 5・<code>paths</code> <code>tests\gui\index_many.Tests.ps1</code> にする。<code>gui-repeat</code> の 5 本が 1 回ずつ流す）。場面ごとの値は成果物 <code>gui-repeat-&lt;shard&gt;</code> の <code>run-&lt;shard&gt;-1.log</code> の「S13 E（500 件）: 一番長い止まり …」の行にある。D の前の検索（9,500 件）が終わらなかった回は、D の値が無いので除き、何回を使ったかを表に書く</li>
 </ul>
 <h2 id="誤って落ちたとき">誤って落ちたとき<a class="headerlink" href="#誤って落ちたとき" title="Permanent link">&para;</a></h2>
 <ul>

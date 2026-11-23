@@ -4380,7 +4380,7 @@
 <li><strong>PR・main への push では動かさない。</strong> 1 回に 12〜16 分かかるため、毎日 1 回 <code>nightly.yml</code> から呼ぶ（<code>workflow_call</code>）。PR で確かめたいときは、PR のブランチを選んで手で動かす（<code>workflow_dispatch</code>。<code>gui-repeat</code> も一緒に動くので、<code>repeat</code> を小さくする）</li>
 <li><strong>必須チェックにしない。</strong> PR では動かないため</li>
 <li><code>tests\run.ps1 -Ci</code> は使わない。カバレッジの下限を確かめるが、画面は別のプロセスで動くので計測できず、<code>Gui</code> だけを流すと下限を割るため</li>
-<li>1 回に 8〜9 分ほどかかる（場面ごとの秒数は各場面の出力に出る）。<code>timeout-minutes</code> は 20。同じブランチに続けて push したときは、古い実行を取り消す（<code>concurrency</code>）</li>
+<li>1 回に 16〜17 分ほどかかる（多くは S13 の場面。場面ごとの秒数は各場面の出力に出る）。<code>timeout-minutes</code> は 30。同じブランチに続けて push したときは、古い実行を取り消す（<code>concurrency</code>）</li>
 <li>落ちたときの材料（画面の画像・写した先の <code>gui_error_log.txt</code>・<code>indexing_log.txt</code>・窓の一覧）は、成否にかかわらず成果物 <code>gui-smoke-results</code>（<code>work/test/gui/&lt;場面&gt;/</code>）として保存する</li>
 <li><strong>稀な落ち方の率は <code>gui-repeat</code> で測る。</strong> <code>gui.yml</code> の <code>gui-repeat</code> は、画面を閉じる場面と起動失敗の記録のテスト（入力 <code>paths</code> の既定の 4 ファイル）を <code>repeat</code> 回（既定 50、上限 50）、5 本の matrix（<code>shard</code>）に分けて流す。1 本は <code>repeat / 5</code> 回で、<code>timeout-minutes</code> は 90。途中で落ちても続け、回ごとに「成功・終了コード 5・閉じない・記録の待ち切れ・そのほか」を数え、集計の job（<code>gui-repeat-summary</code>）が Summary に表で書く。落ちた回の材料は成果物 <code>gui-repeat-&lt;shard&gt;</code> に残る。手動（<code>workflow_dispatch</code>）のときだけ動き、毎日の <code>gui-smoke</code> は変えない（手動で呼ぶと <code>gui-smoke</code> も一緒に動く）。測っている間に push すると <code>concurrency</code> で取り消されるので、push しない</li>
 <li><strong>落ちたときの再実行は 1 回まで。</strong> 2 回続けて同じ段階で落ちたら、偶然ではなく直すものとして扱う（画面の文言を変えたときは、探している文言のテストを直す）</li>
