@@ -157,6 +157,7 @@
             if ($script:search) {
                 cancelSearch
             }
+            closeFileWatches
         } catch {
             # 知らせる処理自体が失敗しても、閉じ方の分岐へは必ず進む（R1）
             try { reportUnexpectedError "画面を閉じる途中" $_ } catch { }
