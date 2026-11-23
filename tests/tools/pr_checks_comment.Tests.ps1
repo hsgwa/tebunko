@@ -232,13 +232,12 @@ Describe "各ワークフローが、自分の結果を pr-comment の複合ア�
         Test-Path -LiteralPath $actionPath | Should -BeTrue
     }
 
-    # 6 か所に同じ形で写したジョブの肝（権限を pr-comment ジョブだけに絞る・既定のブランチの内容で動かす）が食い違わないことを確かめる
+    # 5 か所に同じ形で写したジョブの肝（権限を pr-comment ジョブだけに絞る・既定のブランチの内容で動かす）が食い違わないことを確かめる
     It "<path> の pr-comment ジョブは workflow-key: <key> で複合アクションを呼び、権限と checkout の肝を守っている" -TestCases @(
         @{ path = "test.yml"; key = "test" }
         @{ path = "title.yml"; key = "title" }
         @{ path = "docs.yml"; key = "docs" }
         @{ path = "codeql.yml"; key = "codeql" }
-        @{ path = "gui.yml"; key = "gui" }
         @{ path = "perf-check.yml"; key = "perf-check" }
     ) {
         param ($path, $key)
