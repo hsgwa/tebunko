@@ -143,6 +143,24 @@ Describe "onWindowActivated" -Tag Unit {
         onWindowActivated
         @($global:activatedLog) | Should -Contain "startJob:network"
     }
+
+    It "<name>で比べても、60 秒の起点は進めない（ネットワークの設定ファイルを調べる時機が遅れない）" -TestCases @(
+        @{ name = "取り込み一覧の見張りが無いこと"; statusSignal = $false; statusWatch = $null }
+        @{ name = "取り込み一覧の合図"; statusSignal = $true; statusWatch = "status" }
+    ) {
+        $script:settingsOnNetwork = $true
+        $script:settingsWatch = $null
+        $script:statusWatch = $statusWatch
+        $global:signals.status = $statusSignal
+        $before = (Get-Date).AddSeconds(-30)
+        $script:lastStampCheck = $before
+        onWindowActivated
+        @($global:activatedLog) | Should -Contain "refreshIndexingState:True"
+        $script:lastStampCheck | Should -Be $before
+        $script:lastStampCheck = $before.AddSeconds(-31)
+        onWindowActivated
+        @($global:activatedLog) | Should -Contain "startJob:network"
+    }
 }
 
 Describe "onWindowPreviewKeyDown" -Tag Unit {

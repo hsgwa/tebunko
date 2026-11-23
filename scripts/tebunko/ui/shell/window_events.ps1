@@ -34,12 +34,10 @@
             $settingsSignal = testFileWatchSignaled $script:settingsWatch
             $statusSignal = testFileWatchSignaled $script:statusWatch
             $due = ($null -eq $script:lastStampCheck) -or (((Get-Date) - $script:lastStampCheck).TotalSeconds -ge 60)
-            $compared = $false
             $changed = $false
             if ($script:settingsOnNetwork) {
                 # ネットワークの設定ファイルは、画面のスレッドで触らず、裏で印を取る（保険の間隔でだけ）
                 if ($due) {
-                    $compared = $true
                     startJob {
                         param ($path)
                         getFileStamp $path
@@ -53,16 +51,16 @@
                     } (getWorkspaceJobQueue @([string]${settingsFile}))
                 }
             } elseif ($settingsSignal -or $null -eq $script:settingsWatch -or $due) {
-                $compared = $true
                 $changed = checkSettingsStamp (getFileStamp ${settingsFile})
             }
             # フォルダの有無は別スレッドで調べる（届かないネットワークのフォルダで画面が固まらないように）
             refreshFolderStatus
             if (!(isIndexing) -and ($statusSignal -or $null -eq $script:statusWatch -or $due)) {
-                $compared = $true
                 refreshIndexingState -SkipIfUnchanged
             }
-            if ($compared) {
+            # 60 秒の起点は、保険で調べたときだけ進める（合図や見張りが無いことで調べたときに進めると、
+            # 見張りの無いネットワークの設定ファイルが、前面復帰を 60 秒より短い間隔で繰り返す間、調べられない）
+            if ($due) {
                 $script:lastStampCheck = Get-Date
             }
             if ($changed) {
