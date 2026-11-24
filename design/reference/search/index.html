@@ -4726,7 +4726,7 @@
 <td><code>newExportRequest</code></td>
 <td>source, outputPath, shownHits, filterText, word, format（既定 <code>xlsx</code>）, tmpRoot（既定は空）</td>
 <td>hashtable（Synchronized）</td>
-<td>書き出しの要求（<code>Kind = "Export"</code>）。表の分（値だけ）・絞り込みの文字列・書く形式（xlsx / csv / tsv）・元の検索の要求を持つ。<code>Outcome</code>（Done / Cancelled / Locked / Denied / Failed）・<code>Written</code>・<code>Scope</code>・<code>HeadOnlyReason</code>・<code>TruncatedCells</code>・<code>DroppedRows</code>・<code>Error</code>・<code>Finished</code> を司令が書く</td>
+<td>書き出しの要求（<code>Kind = "Export"</code>）。表の分（<code>shownHits</code>。表の順に、1 件ずつの値か、ファイルごとのまとまり <code>@{ Runs; Order }</code>〈<code>getExportHits</code>。書くときに <code>expandHitRuns</code> で広げる〉）・絞り込みの文字列・書く形式（xlsx / csv / tsv）・元の検索の要求を持つ。<code>Outcome</code>（Done / Cancelled / Locked / Denied / Failed）・<code>Written</code>・<code>Scope</code>・<code>HeadOnlyReason</code>・<code>TruncatedCells</code>・<code>DroppedRows</code>・<code>Error</code>・<code>Finished</code> を司令が書く</td>
 <td><a href="../../gui/search-tab/#結果をファイルに出力">結果をファイルに出力</a></td>
 <td><code>startExport</code>（画面）・<code>SearchService.Export</code></td>
 </tr>
