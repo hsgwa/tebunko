@@ -106,7 +106,9 @@ function invokeTypingAttempt {
     if ($last.Error) { throw "検索に失敗しました: $($last.Error)" }
 
     $cancelledSteps = @($prevRequests | Where-Object { $_.Cancelled }).Count
-    $hits = countQueuedHits $last.Queue
+    $hits = 0
+    $hit = $null
+    while ($last.Queue.TryDequeue([ref]$hit)) { $hits++ }
 
     $attempt = [ordered]@{
         N = $n; Steps = $steps.Count

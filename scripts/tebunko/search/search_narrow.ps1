@@ -1,23 +1,19 @@
 ﻿# 前の検索の結果を使い回す（状態層）。検索語が前の語を含む形で長くなったとき（「見積」→「見積書」）、
-# 前の検索のヒットの行（場所ごとのまとまり）だけを新しい語で照合し直し、本文インデックスのファイルを読まずに結果を出す。結果は全体を探し直したときと同じになる。
+# 前の検索のヒットの行だけを新しい語で照合し直し、本文インデックスのファイルを読まずに結果を出す。結果は全体を探し直したときと同じになる。
 # 絞ってよいかの判定は getNarrowSearchReason（search_query.ps1）。ここでは、前の検索の記録を作る・本文インデックスのファイルの一覧が同じかを比べる・
 # ヒットを選ぶ・絞った検索を実行する。
 
 function testRecordableHitLines {
-    # ヒットの行（まとまりの一覧 runs の Lines）が、元の行そのままか。テキストファイルの長い行は表示用に切って "…" を付ける（truncateHitLine）ため、
+    # ヒットの行が、元の行そのままか。テキストファイルの長い行は表示用に切って "…" を付ける（truncateHitLine）ため、
     # 切られた可能性のある行（テキストの行で、先頭か末尾が "…"）があれば $false（その行では新しい語の照合が全体の検索と変わりうる）
     param (
-        $runs
+        $hits
     )
 
-    foreach ($run in $runs) {
-        if ((getContentIndexFileKind $run.Book) -ne "テキスト") {
-            continue
-        }
-        foreach ($line in $run.Lines) {
-            if ($line.StartsWith("…") -or $line.EndsWith("…")) {
-                return $false
-            }
+    foreach ($hit in $hits) {
+        $line = [string]$hit.Line
+        if (($line.StartsWith("…") -or $line.EndsWith("…")) -and (getContentIndexFileKind $hit.Book) -eq "テキスト") {
+            return $false
         }
     }
     return $true
@@ -26,18 +22,18 @@ function testRecordableHitLines {
 function newSearchRecord {
     # 最後まで検索し終えた要求の記録を作る（次の要求が絞れるかの判定と、絞った検索で使う）。記録できないとき（上限なし・打ち切り・飛ばしたファイルあり・切った行あり）は $null
     #   request: 終えた要求（Word などの条件）/ folders: 要求の検索対象（invokeSearchRequest が Folders を列挙の結果で上書きする前の値）
-    #   files  : 列挙した本文インデックスのファイルのすべて（gram 索引で絞る前）/ hits: ヒットのまとまりの一覧（画面に渡した同じオブジェクト）
+    #   files  : 列挙した本文インデックスのファイルのすべて（gram 索引で絞る前）/ hits: ヒットの一覧（画面に渡した同じオブジェクト）
     param (
         [hashtable]$request,
         $folders,
         $files,
-        $runs
+        $hits
     )
 
     if ($request.Limit -le 0 -or $request.Truncated -or $request.CountTimeout -or $request.Cancelled -or @($request.Skipped).Count -gt 0) {
         return $null
     }
-    if (!(testRecordableHitLines $runs)) {
+    if (!(testRecordableHitLines $hits)) {
         return $null
     }
     $paths = [string[]]::new($files.Count)
@@ -51,7 +47,7 @@ function newSearchRecord {
     return @{
         Word = $request.Word; SimpleMatch = $request.SimpleMatch; CaseSensitive = $request.CaseSensitive; FileFilter = $request.FileFilter
         IncludeShapes = $request.IncludeShapes; IncludeComments = $request.IncludeComments; Folders = $folders; WorkDir = $request.WorkDir; Limit = $request.Limit
-        Paths = $paths; Ticks = $ticks; Sizes = $sizes; Runs = $runs
+        Paths = $paths; Ticks = $ticks; Sizes = $sizes; Hits = $hits
     }
 }
 
@@ -75,7 +71,7 @@ function testSearchRecordFiles {
 }
 
 function selectNarrowHits {
-    # 記録のヒット（まとまりの一覧）のうち、新しい語の正規表現に一致する行だけを、順番を保ったまとまりの一覧にして返す（行が残らないまとまりは落とす）。判定は全体の検索の 1 行ずつの照合と同じ
+    # 記録のヒットのうち、新しい語の正規表現に一致する行だけを、順番を保って返す。判定は全体の検索の 1 行ずつの照合と同じ
     # （Excel の図形・コメントの行は、区切りのタブより後から始まる一致だけをヒットにする）
     param (
         $record,
@@ -84,24 +80,16 @@ function selectNarrowHits {
     )
 
     $regex = (newSearchRegex $word $true $caseSensitive).Regex
-    $selected = New-Object System.Collections.Generic.List[hashtable]
-    foreach ($run in $record.Runs) {
-        $cellPrefixed = testCellPrefixedPlace $run.Book (splitObjectPlace $run.Location).Kind
-        $kept = $null
-        for ($i = 0; $i -lt $run.Lines.Count; $i++) {
-            $line = [string]$run.Lines[$i]
-            if (!$regex.IsMatch($line) -or ($cellPrefixed -and !(testCellPrefixedHit $regex $line))) {
-                continue
-            }
-            if ($null -eq $kept) {
-                $kept = @{} + $run
-                $kept.LineNumbers = [System.Collections.Generic.List[int]]::new()
-                $kept.Lines = [System.Collections.Generic.List[string]]::new()
-                $selected.Add($kept)
-            }
-            $kept.LineNumbers.Add($run.LineNumbers[$i])
-            $kept.Lines.Add($line)
+    $selected = New-Object System.Collections.Generic.List[object]
+    foreach ($hit in $record.Hits) {
+        $line = [string]$hit.Line
+        if (!$regex.IsMatch($line)) {
+            continue
         }
+        if ((testCellPrefixedPlace $hit.Book (splitObjectPlace $hit.Location).Kind) -and !(testCellPrefixedHit $regex $line)) {
+            continue
+        }
+        $selected.Add($hit)
     }
     return , $selected
 }
@@ -131,8 +119,8 @@ function invokeNarrowSearch {
         $request.Cancelled = $true
         return $true
     }
-    foreach ($run in $selected) {
-        $request.Queue.Enqueue($run)
+    foreach ($hit in $selected) {
+        $request.Queue.Enqueue($hit)
     }
     $count = $listing.ContentIndexFiles.Count
     $request.Folders = $listing.Folders
@@ -140,13 +128,13 @@ function invokeNarrowSearch {
     $request.Total = $count
     $request.IndexTotal = $count
     $request.Done = $count
-    $request.HitTotal = getHitRunCount $selected
+    $request.HitTotal = $selected.Count
     $request.Narrowed = $true
     $request.NarrowReason = "Narrow"
     $state.Record = $record.Clone()
     $state.Record.Word = $request.Word
     $state.Record.SimpleMatch = $request.SimpleMatch
-    $state.Record.Runs = $selected
+    $state.Record.Hits = $selected
     return $true
 }
 
@@ -168,10 +156,10 @@ function updateSearchRecord {
         [hashtable]$state,
         $folders,
         $files,
-        $runs
+        $hits
     )
 
-    $record = newSearchRecord $request $folders $files $runs
+    $record = newSearchRecord $request $folders $files $hits
     if ($null -ne $record) {
         $state.Record = $record
     }

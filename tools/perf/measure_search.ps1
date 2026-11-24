@@ -62,7 +62,9 @@ function invokeServiceSearch($service) {
     # Truncated を途中で書かない版では、終わってから立つので ShownMs = TotalMs になる
     if ($null -eq $shownMs) { $shownMs = $totalMs }
     $hitTotal = if ($request.ContainsKey("HitTotal")) { [int]$request.HitTotal } else { $null }
-    $hits = countQueuedHits $request.Queue
+    $hits = 0
+    $hit = $null
+    while ($request.Queue.TryDequeue([ref]$hit)) { $hits++ }
     return @{ TotalMs = $totalMs; ShownMs = $shownMs; HitTotal = $hitTotal; LoadMs = $null; ListMs = $listMs; MatchMs = $totalMs - $listMs; Packs = [int]$request.IndexTotal; GramUsed = [bool]$request.GramUsed; Hits = $hits; Truncated = [bool]$request.Truncated }
 }
 

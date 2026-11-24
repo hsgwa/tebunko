@@ -17,10 +17,8 @@ function testCellPrefixedHit {
 
 
 function searchContentIndexFiles {
-    # contentIndexFiles の start から count 件の本文インデックスのファイルを読み、regex に一致する行を @{ Runs; Skipped; Count; Timeout; OverflowFailed } で返す。
-    # Runs は、場所ごとのまとまり（hashtable。Root; RelPath; RelDir; FileName; Book; Location; LineNumbers〈List[int]〉; Lines〈List[string]〉）の並び。
-    # 1 つの場所で続けて一致した行を 1 つにまとめる（1 行に複数一致しても 1 件。ヒット 1 件ごとにオブジェクトを作らない）。
-    # 表に入れた行の数が max を超えた（max+1 件目が見つかった）時点で、gate が無ければ打ち切る（負は上限なし）。
+    # contentIndexFiles の start から count 件の本文インデックスのファイルを読み、regex に一致する行を @{ Hits; Skipped; Count; Timeout; OverflowFailed } で返す。
+    # Hits は PSCustomObject の並び（1 行に複数一致しても 1 件）。max 以上（max+1 件目）が見つかった時点で、gate が無ければ打ち切る（負は上限なし）。
     # 読めない・形が崩れている・contentIndexSearchMaxBytes より大きいファイルは、そのファイルだけ飛ばし、パスを Skipped に入れる（キャッシュには入れない）。
     #   include / exclude: 元のファイル名の条件（$null は条件なし） / excludePlace: 除く場所（図形・コメント）
     #   stopSignal: Stop を持つもの（検索の要求。$null は止めない）。Stop が立ったら、次のファイルから読まずに、ここまでのヒットを返す
@@ -52,7 +50,7 @@ function searchContentIndexFiles {
     )
 
     # 並列検索の別スレッドでも動くよう、コマンドレットは使わない
-    $runs = [System.Collections.Generic.List[hashtable]]::new()
+    $hits = [System.Collections.Generic.List[psobject]]::new()
     $skipped = [System.Collections.Generic.List[string]]::new()
     $end = [Math]::Min($contentIndexFiles.Count, $start + $count)
     $lf = [char]10
@@ -65,9 +63,6 @@ function searchContentIndexFiles {
     $timeoutIndex = if ($gated) { 2 + ($gate.Length - 2) / 2 + $slot } else { 0 }
     $counting = $false        # 数えるだけの照合に切り替えたか（戻らない）
     $total = 0                # 作った行と数えた件数の合計
-    $rows = 0                 # 表に入れた行の数（Runs の中の行の合計）
-    $run = $null              # 今のまとまり（場所が変わる・ファイルが変わるまで行を足す）
-    $runPlace = $null
     $written = 0              # 自分の欄に書いた最大の値
     $sinceCheck = 0
     $lineTick = 0
@@ -91,9 +86,7 @@ function searchContentIndexFiles {
                 $sinceCheck = 0
             }
             $contentIndexFile = $contentIndexFiles[$i]
-            $runsBefore = $runs.Count
-            $rowsBefore = $rows
-            $run = $null; $runPlace = $null
+            $hitsBefore = $hits.Count
             $fileTotal = $total
             $fileCounting = $counting
             $startPos = 0
@@ -154,6 +147,7 @@ function searchContentIndexFiles {
                 }
                 if (!$matched) { continue }
 
+                $before = $hits.Count
                 $lineMode = $contentIndexMode -eq "lines"
                 if ($lineMode) {
                     try {
@@ -238,18 +232,13 @@ function searchContentIndexFiles {
                                 if ($isTextBook) {
                                     $line = truncateHitLine $line ($index - $lineStart)
                                 }
-                                if (![object]::ReferenceEquals($runPlace, $place)) {
-                                    $run = @{ Root = $contentIndexFile.Root; RelPath = $contentIndexFile.RelPath; RelDir = $contentIndexFile.RelDir; FileName = $place.Book; Book = $place.Book
-                                        Location = $place.Location; LineNumbers = [System.Collections.Generic.List[int]]::new(); Lines = [System.Collections.Generic.List[string]]::new() }
-                                    $runs.Add($run)
-                                    $runPlace = $place
-                                }
-                                $run.LineNumbers.Add($number)
-                                $run.Lines.Add($line)
-                                $rows++
+                                $hits.Add([pscustomobject]@{
+                                    Root = $contentIndexFile.Root; RelPath = $contentIndexFile.RelPath; RelDir = $contentIndexFile.RelDir; FileName = $place.Book
+                                    Book = $place.Book; Location = $place.Location; LineNumber = $number; Line = $line
+                                })
                                 $total++
-                                if ($max -ge 0 -and $rows -gt $max) {
-                                    if (!$gated) { return @{ Runs = $runs; Skipped = $skipped; Count = $total; Timeout = $false; OverflowFailed = $false } }
+                                if ($max -ge 0 -and $hits.Count -gt $max) {
+                                    if (!$gated) { return @{ Hits = $hits; Skipped = $skipped; Count = $total; Timeout = $false; OverflowFailed = $false } }
                                     $counting = $true
                                 }
                             }
@@ -274,13 +263,22 @@ function searchContentIndexFiles {
                         continue
                     } catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
                         # 全文への照合が時間切れなら、1 行ずつ照合し直す（このファイルで足した行・数えた件数・溢れの行は元に戻す）
-                        if ($runs.Count -gt $runsBefore) { $runs.RemoveRange($runsBefore, $runs.Count - $runsBefore) }
-                        $rows = $rowsBefore
-                        $run = $null; $runPlace = $null
+                        if ($hits.Count -gt $before) { $hits.RemoveRange($before, $hits.Count - $before) }
                         $total = $fileTotal
                         $counting = $fileCounting
-                        # 溢れのファイルを、ファイルの始めの位置まで戻す
-                        if ($null -ne $writer -and !(resetSearchOverflowWriter $writer $startPos)) { $overflowFailed = $true; $wantOverflow = $false; $writer = $null }
+                        # 溢れのファイルを、ファイルの始めの位置まで戻す。Position も戻さないと次の書き込みが穴を作る
+                        if ($null -ne $writer) {
+                            try {
+                                $writer.Flush()
+                                $writer.BaseStream.SetLength($startPos)
+                                $writer.BaseStream.Position = $startPos
+                            } catch {
+                                $overflowFailed = $true
+                                $wantOverflow = $false
+                                try { $writer.Dispose() } catch { }
+                                $writer = $null
+                            }
+                        }
                     }
                 }
                 # filter・scan（と lines の時間切れ）: 場所ごとに 1 行ずつ照合する
@@ -333,18 +331,13 @@ function searchContentIndexFiles {
                             if ($isTextBook) {
                                 $line = truncateHitLine $line $lineMatch.Index
                             }
-                            if (![object]::ReferenceEquals($runPlace, $place)) {
-                                $run = @{ Root = $contentIndexFile.Root; RelPath = $contentIndexFile.RelPath; RelDir = $contentIndexFile.RelDir; FileName = $place.Book; Book = $place.Book
-                                    Location = $place.Location; LineNumbers = [System.Collections.Generic.List[int]]::new(); Lines = [System.Collections.Generic.List[string]]::new() }
-                                $runs.Add($run)
-                                $runPlace = $place
-                            }
-                            $run.LineNumbers.Add($number)
-                            $run.Lines.Add($line)
-                            $rows++
+                            $hits.Add([pscustomobject]@{
+                                Root = $contentIndexFile.Root; RelPath = $contentIndexFile.RelPath; RelDir = $contentIndexFile.RelDir; FileName = $place.Book
+                                Book = $place.Book; Location = $place.Location; LineNumber = $number; Line = $line
+                            })
                             $total++
-                            if ($max -ge 0 -and $rows -gt $max) {
-                                if (!$gated) { return @{ Runs = $runs; Skipped = $skipped; Count = $total; Timeout = $false; OverflowFailed = $false } }
+                            if ($max -ge 0 -and $hits.Count -gt $max) {
+                                if (!$gated) { return @{ Hits = $hits; Skipped = $skipped; Count = $total; Timeout = $false; OverflowFailed = $false } }
                                 $counting = $true
                             }
                         }
@@ -376,12 +369,22 @@ function searchContentIndexFiles {
                     $gate[$timeoutIndex] = 1
                     break
                 }
-                if ($runs.Count -gt $runsBefore) { $runs.RemoveRange($runsBefore, $runs.Count - $runsBefore) }
-                $rows = $rowsBefore
+                if ($hits.Count -gt $hitsBefore) { $hits.RemoveRange($hitsBefore, $hits.Count - $hitsBefore) }
                 $total = $fileTotal
                 $counting = $fileCounting
-                # 溢れのファイルを、ファイルの始めの位置まで戻す
-                if ($null -ne $writer -and !(resetSearchOverflowWriter $writer $startPos)) { $overflowFailed = $true; $wantOverflow = $false; $writer = $null }
+                # 溢れのファイルを、ファイルの始めの位置まで戻す。Position も戻さないと次の書き込みが穴を作る
+                if ($null -ne $writer) {
+                    try {
+                        $writer.Flush()
+                        $writer.BaseStream.SetLength($startPos)
+                        $writer.BaseStream.Position = $startPos
+                    } catch {
+                        $overflowFailed = $true
+                        $wantOverflow = $false
+                        try { $writer.Dispose() } catch { }
+                        $writer = $null
+                    }
+                }
                 $skipped.Add($contentIndexFile.Path)
             }
         }
@@ -391,7 +394,28 @@ function searchContentIndexFiles {
             try { $writer.Dispose() } catch { $overflowFailed = $true }
         }
     }
-    return @{ Runs = $runs; Skipped = $skipped; Count = $total; Timeout = $timedOut; OverflowFailed = $overflowFailed }
+    return @{ Hits = $hits; Skipped = $skipped; Count = $total; Timeout = $timedOut; OverflowFailed = $overflowFailed }
+}
+
+
+# 本文インデックスのファイルの検索で、1 つのスレッドにまとめて渡す大きさの目安（バイト）
+${contentIndexTaskBytes} = 16MB
+
+# 本文インデックスのファイルの検索の各スレッドで動かすスクリプト。@{ Hits; Timeout; Skipped; Count; OverflowFailed } を返す
+# gate が無いときの照合の時間切れは、Hits = $null・Timeout = $true で返す（gate があるときは、それまでの Hits を付けて Timeout = $true で返る）
+${contentIndexWorkerScript} = {
+    param ($contentIndexFiles, $start, $count, $regex, $max, $textRegex, $scanMode, $cache, $include, $exclude, $excludePlace, $stopSignal, $gate = $null, $slot = 0, $checkEvery = 64, $overflowDir = "")
+    try {
+        $found = searchContentIndexFiles $contentIndexFiles $start $count $regex $max $textRegex $scanMode $cache $include $exclude $excludePlace $stopSignal $gate $slot $checkEvery $overflowDir
+        @{ Hits = $found.Hits; Timeout = $found.Timeout; Skipped = $found.Skipped; Count = $found.Count; OverflowFailed = $found.OverflowFailed }
+    } catch {
+        if ($_.Exception -is [System.Text.RegularExpressions.RegexMatchTimeoutException] -or
+            $_.Exception.InnerException -is [System.Text.RegularExpressions.RegexMatchTimeoutException]) {
+            @{ Hits = $null; Timeout = $true; Skipped = $null; Count = 0; OverflowFailed = $false }
+        } else {
+            throw
+        }
+    }
 }
 
 
@@ -427,63 +451,6 @@ function expandHitRuns {
 }
 
 
-function splitHitRuns {
-    # まとまりの一覧を、先頭から count 行までの分（Keep）と、残り（Extra）に分ける（まとまりの途中で切るなら、その 1 つを前後に分ける）。
-    # count が負なら全部 Keep。@{ Keep; Extra; KeepCount（Keep の行の数）} を返す。runs の中身は変えない
-    param (
-        $runs,
-        [int]$count
-    )
-
-    $keep = New-Object System.Collections.Generic.List[hashtable]
-    $extra = New-Object System.Collections.Generic.List[hashtable]
-    $kept = 0
-    foreach ($run in $runs) {
-        $size = $run.Lines.Count
-        if ($count -lt 0 -or $kept + $size -le $count) {
-            $keep.Add($run)
-            $kept += $size
-            continue
-        }
-        $take = $count - $kept
-        if ($take -gt 0) {
-            $head = @{} + $run
-            $head.LineNumbers = $run.LineNumbers.GetRange(0, $take)
-            $head.Lines = $run.Lines.GetRange(0, $take)
-            $keep.Add($head)
-            $kept += $take
-        }
-        $tail = @{} + $run
-        $tail.LineNumbers = $run.LineNumbers.GetRange($take, $size - $take)
-        $tail.Lines = $run.Lines.GetRange($take, $size - $take)
-        $extra.Add($tail)
-        $count = $kept
-    }
-    return @{ Keep = $keep; Extra = $extra; KeepCount = $kept }
-}
-
-
-# 本文インデックスのファイルの検索で、1 つのスレッドにまとめて渡す大きさの目安（バイト）
-${contentIndexTaskBytes} = 16MB
-
-# 本文インデックスのファイルの検索の各スレッドで動かすスクリプト。@{ Runs; Timeout; Skipped; Count; OverflowFailed } を返す
-# gate が無いときの照合の時間切れは、Runs = $null・Timeout = $true で返す（gate があるときは、それまでの Runs を付けて Timeout = $true で返る）
-${contentIndexWorkerScript} = {
-    param ($contentIndexFiles, $start, $count, $regex, $max, $textRegex, $scanMode, $cache, $include, $exclude, $excludePlace, $stopSignal, $gate = $null, $slot = 0, $checkEvery = 64, $overflowDir = "")
-    try {
-        $found = searchContentIndexFiles $contentIndexFiles $start $count $regex $max $textRegex $scanMode $cache $include $exclude $excludePlace $stopSignal $gate $slot $checkEvery $overflowDir
-        @{ Runs = $found.Runs; Timeout = $found.Timeout; Skipped = $found.Skipped; Count = $found.Count; OverflowFailed = $found.OverflowFailed }
-    } catch {
-        if ($_.Exception -is [System.Text.RegularExpressions.RegexMatchTimeoutException] -or
-            $_.Exception.InnerException -is [System.Text.RegularExpressions.RegexMatchTimeoutException]) {
-            @{ Runs = $null; Timeout = $true; Skipped = $null; Count = 0; OverflowFailed = $false }
-        } else {
-            throw
-        }
-    }
-}
-
-
 function newContentIndexWorkerPool {
     # 本文インデックスのファイルの照合のプール（WorkerPool）を作る。各スレッドには照合に要る関数と値だけを読み込む。
     # 利用者が結果を待つ処理のため、優先度は下げない（docs/design/structure/threads.md「スレッドの一覧」）
@@ -491,7 +458,7 @@ function newContentIndexWorkerPool {
         [int]$workers = (getWorkerCount)
     )
 
-    $state = newWorkerState @("searchContentIndexFiles", "testCellPrefixedHit", "readContentIndexPlaces", "addContentIndexPlace", "getIndexRebuildMessage", "testContentIndexCellPrefixed", "testCellPrefixedPlace", "convertContentIndexMetaToPlace", "decodeContentIndexValue", "getContentIndexFileKind", "getOfficeFileKind", "testTextExtension", "testPdfExtension", "truncateHitLine", "newSearchOverflowWriter", "resetSearchOverflowWriter", "testSourceBookName") `
+    $state = newWorkerState @("searchContentIndexFiles", "testCellPrefixedHit", "readContentIndexPlaces", "addContentIndexPlace", "getIndexRebuildMessage", "testContentIndexCellPrefixed", "testCellPrefixedPlace", "convertContentIndexMetaToPlace", "decodeContentIndexValue", "getContentIndexFileKind", "getOfficeFileKind", "testTextExtension", "testPdfExtension", "truncateHitLine", "newSearchOverflowWriter", "testSourceBookName") `
         @("contentIndexMark", "contentIndexVersion", "contentIndexSplitVersion", "indexRebuildMessage", "officeFileKinds", "contentIndexPlaceKeys", "placeKindShape", "placeKindComment", "placeKindHeaderFooter", "placeKindEmbed", "textExtensions", "pdfExtensions", "officeExtensions", "displayControlChars", "hitLineMaxChars", "hitLineBeforeMatchChars", "contentIndexSearchMaxBytes")
     return [WorkerPool]::new($workers, $state, $Host, "Normal")
 }
@@ -528,7 +495,7 @@ function searchContentIndex {
     # 本文インデックスのファイルをワードで検索し、ヒットした行を返す（画面の検索処理）。
     #   contentIndexFiles        : findContentIndexFiles・getContentIndexFiles の結果
     #   simpleMatch  : $true なら文字どおりに検索する。$false なら正規表現として検索し、正規表現として不正なら文字どおりに検索する
-    #   limit        : 件数の上限（0 は上限なし）。表（Runs）には上限までの行を入れ、超えた分は止めずに数え続けて HitTotal に入れる。overflowDir があれば超えた分の行を書き溜める
+    #   limit        : 件数の上限（0 は上限なし）。表（Hits）には上限までを入れ、超えた分は止めずに数え続けて HitTotal に入れる。overflowDir があれば超えた分の行を書き溜める
     #   stopSignal   : Stop を持つもの（検索の要求。$null は止めない）。Stop が立ったら、本文インデックスのファイル 1 件ごとに止める（作業スレッドにも同じものを渡す）
     #   caseSensitive: 英字の大文字・小文字を区別する（newSearchRegex）
     #   fileFilter   : 対象ファイル（newFileFilter）。元のファイル名が一致しないものは検索しない
@@ -536,15 +503,14 @@ function searchContentIndex {
     #   cache        : 読んだ本文インデックスのファイルの内容を次の検索で使い回す入れ物（newTsvTextCache。$null は使い回さない）
     #   includeShapes / includeComments: 図形・コメントの場所（"<シート名>[図形]" 等）も検索する（newPlaceExclude）
     #   taskBytes    : 1 つのスレッドにまとめて渡す大きさの目安（バイト）
-    #   onProgress   : 1 つの作業を照合するたびに呼ぶ { param($done, $total, $newRuns, $hitTotal) }（newRuns はその作業のまとまりの一覧。done・total は本文インデックスのファイルの数。hitTotal は今までの件数）
+    #   onProgress   : 1 つの作業を照合するたびに呼ぶ { param($done, $total, $newHits, $hitTotal) }（done・total は本文インデックスのファイルの数。hitTotal は今までの件数）
     #   pool         : 照合に使うプール（newContentIndexWorkerPool。検索の司令が使い回す）。$null なら、並列にするときだけ作って最後に閉じる
     #   checkEvery   : 作業が照合の合図（件数・止める印）を見る間隔（ヒットの数）
     #   overflowDir  : 溢れの置き場所（search_overflow.ps1。空は書き溜めない）
-    # @{ Runs（場所ごとのまとまりの一覧）; HitCount（Runs の中の行の数）; SimpleMatch（実際に文字どおり検索したか）; Total（本文インデックスのファイルの数）; Truncated（上限を超えた）; HitTotal（上限を超えた分も含む件数。中止・総数の時間切れは -1）;
+    # @{ Hits; SimpleMatch（実際に文字どおり検索したか）; Total（本文インデックスのファイルの数）; Truncated（上限を超えた）; HitTotal（上限を超えた分も含む件数。中止・総数の時間切れは -1）;
     #    CountTimeout（上限を超えた後の照合が時間切れで、総数が数えられなかった）; OverflowFailed（溢れの書き溜めに失敗した）; Cancelled; Skipped（飛ばしたファイルのパスの一覧） } を返す。
     # 中止（Cancelled）のとき、途中で止めたジョブのヒット・Skipped は結果にも画面にも入れない（止める前に終えたジョブの分だけを返す）。
-    # Runs の各要素は hashtable（Root; RelPath（本文インデックスのファイル）; RelDir; FileName; Book; Location; LineNumbers〈List[int]〉; Lines〈List[string]〉。1 つの場所の続いた行）。
-    # 1 件ずつの PSCustomObject（Root; RelPath; RelDir; FileName; Book; Location; LineNumber; Line）が要るときは expandHitRuns で作る
+    # Hits の各要素は PSCustomObject（Root; RelPath（本文インデックスのファイル）; RelDir; FileName; Book; Location; LineNumber; Line）
     param (
         [string]$word,
         $contentIndexFiles,
@@ -567,9 +533,9 @@ function searchContentIndex {
     $search = newSearchRegex $word $simpleMatch $caseSensitive
     $filter = newFileFilter $fileFilter
     $excludePlace = newPlaceExclude $includeShapes $includeComments
-    $runs = New-Object System.Collections.Generic.List[hashtable]
+    $hits = New-Object System.Collections.Generic.List[psobject]
     $skipped = New-Object System.Collections.Generic.List[string]
-    $result = @{ Runs = $runs; HitCount = 0; SimpleMatch = $search.SimpleMatch; Total = $contentIndexFiles.Count; Truncated = $false; HitTotal = 0; CountTimeout = $false; OverflowFailed = $false; Cancelled = $false; Skipped = $skipped }
+    $result = @{ Hits = $hits; SimpleMatch = $search.SimpleMatch; Total = $contentIndexFiles.Count; Truncated = $false; HitTotal = 0; CountTimeout = $false; OverflowFailed = $false; Cancelled = $false; Skipped = $skipped }
     $timeoutMessage = "正規表現の照合に時間がかかりすぎるため、検索を中止しました。正規表現を見直してください。"
     $tasks = splitContentIndexTasks $contentIndexFiles $taskBytes $(if ($limit -gt 0) { [long]($taskBytes / 64) } else { 0 })
     $workers = if ($pool) { $pool.Size } elseif ($workerCount -gt 0) { $workerCount } else { getWorkerCount }
@@ -600,7 +566,7 @@ function searchContentIndex {
             }
             if ($pool) {
                 while ($pending.Count -lt $workers * 2 -and $next -lt $tasks.Count) {
-                    $max = if ($limit -gt 0) { $limit - $result.HitCount } else { -1 }
+                    $max = if ($limit -gt 0) { $limit - $hits.Count } else { -1 }
                     $task = $tasks[$next]
                     $job = $pool.Submit(${contentIndexWorkerScript}.ToString(), @($contentIndexFiles, $task.Start, $task.Count, $search.Regex, $max, $search.TextRegex,
                             $search.ScanMode, $cache, $filter.Include, $filter.Exclude, $excludePlace, $stopSignal, $gate, $next, $checkEvery, $overflowDir))
@@ -611,7 +577,7 @@ function searchContentIndex {
                 }
                 $received = $pending.Dequeue()
                 $output = $pool.Receive($received)
-                if ($output[0].Timeout -and $null -eq $output[0].Runs) { $result.HitTotal = -1; throw $timeoutMessage }
+                if ($output[0].Timeout -and $null -eq $output[0].Hits) { $result.HitTotal = -1; throw $timeoutMessage }
                 $found = $output[0]
                 $slot = $received.Slot
                 $done = $received.Done
@@ -620,7 +586,7 @@ function searchContentIndex {
                 $slot = $next
                 $next++
                 $done = $task.Start + $task.Count
-                $max = if ($limit -gt 0) { $limit - $result.HitCount } else { -1 }
+                $max = if ($limit -gt 0) { $limit - $hits.Count } else { -1 }
                 try {
                     $found = searchContentIndexFiles $contentIndexFiles $task.Start $task.Count $search.Regex $max $search.TextRegex $search.ScanMode $cache $filter.Include $filter.Exclude $excludePlace $stopSignal $gate $slot $checkEvery $overflowDir
                 } catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
@@ -628,25 +594,28 @@ function searchContentIndex {
                     throw $timeoutMessage
                 }
             }
+            $newHits = $found.Hits
+            $newSkipped = $found.Skipped
             # 作業の途中で止められたときは、その作業のヒットを結果にも進み具合にも入れない（途中までの作業のため）
             if ($null -ne $stopSignal -and $stopSignal.Stop) {
                 $result.Cancelled = $true
                 $drain = $true
                 break
             }
-            $skipped.AddRange([string[]]@($found.Skipped))
+            $skipped.AddRange([string[]]@($newSkipped))
             if ($found.OverflowFailed) { $result.OverflowFailed = $true }
             $result.HitTotal += $found.Count
             # 表に入りきらない行は、止めずに溢れの head のファイルに書く（作業のファイルより前の順）
-            $max = if ($limit -gt 0) { $limit - $result.HitCount } else { -1 }
-            $split = splitHitRuns $found.Runs $max
-            if ($split.Extra.Count -gt 0) {
+            $max = if ($limit -gt 0) { $limit - $hits.Count } else { -1 }
+            if ($max -ge 0 -and $newHits.Count -gt $max) {
+                $extra = $newHits.GetRange($max, $newHits.Count - $max)
+                $newHits.RemoveRange($max, $newHits.Count - $max)
                 if ($overflowDir -ne "" -and !$result.OverflowFailed) {
                     $headWriter = newSearchOverflowWriter $overflowDir "$slot.head.tsv"
                     $written = $false
                     if ($null -ne $headWriter) {
                         try {
-                            $written = writeSearchOverflowHits $headWriter $split.Extra
+                            $written = writeSearchOverflowHits $headWriter $extra
                         } finally {
                             try { $headWriter.Dispose() } catch { $written = $false }
                         }
@@ -655,10 +624,9 @@ function searchContentIndex {
                 }
             }
             if ($limit -gt 0 -and $result.HitTotal -gt $limit) { $result.Truncated = $true }
-            $runs.AddRange($split.Keep)
-            $result.HitCount += $split.KeepCount
+            $hits.AddRange($newHits)
             if ($onProgress) {
-                & $onProgress $done $contentIndexFiles.Count $split.Keep $result.HitTotal
+                & $onProgress $done $contentIndexFiles.Count $newHits $result.HitTotal
             }
             if ($found.Timeout) {
                 # 上限を超えた後の照合の時間切れ: 表は埋まっているので、総数だけが数えられない。表に入る分の途中で切れたなら、これまでどおり中止にする

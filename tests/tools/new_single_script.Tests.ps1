@@ -417,7 +417,7 @@ Describe "`-Part indexer`（結合した単一 .ps1）" -Tag Slow {
                 $filter = newFileFilter ""
                 $excludePlace = newPlaceExclude $true $true
                 $found = searchContentIndexFiles $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $filter.Include $filter.Exclude $excludePlace
-                return (getHitRunCount $found.Runs)
+                return $found.Hits.Count
 '@)
             $handle = $ps.BeginInvoke()
             $completed = $handle.AsyncWaitHandle.WaitOne(30000)
