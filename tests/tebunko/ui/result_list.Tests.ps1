@@ -1330,10 +1330,11 @@ Describe "pumpSearch（検索スレッドのヒットを見出しに取り込む
         $script:searchService | Add-Member ScriptMethod IsRunning { return $true }
 
         function newQueuedHit {
-            param ([string]$location, [int]$lineNumber, [string]$line)
+            # 検索スレッドが返す 1 件ずつの形。RelPath は本文インデックスのファイル（1 つに元のファイルがいくつも入る）
+            param ([string]$location, [int]$lineNumber, [string]$line, [string]$book = "見積.xlsx")
             return [pscustomobject]@{
-                Root = "C:\tebunko\work\index"; RelPath = "営業部\2024\見積.xlsx\$location.tsv"; RelDir = "営業部\2024"
-                FileName = "$location.tsv"; Book = "見積.xlsx"; Location = $location; LineNumber = $lineNumber; Line = $line
+                Root = "C:\tebunko\work\index"; RelPath = "営業部\2024\00001.tsv"; RelDir = "営業部\2024"
+                FileName = "00001.tsv"; Book = $book; Location = $location; LineNumber = $lineNumber; Line = $line
             }
         }
     }
@@ -1369,7 +1370,7 @@ Describe "pumpSearch（検索スレッドのヒットを見出しに取り込む
     It "同じ場所でも、本文インデックスのファイル（RelPath）が違う 1 件は、新しいまとまりにする（分けたファイルの塊をまたがない）" {
         $first = newQueuedHit "4月" 1 "`t見積 山田"
         $second = newQueuedHit "4月" 2 "`t見積 佐藤"
-        $second.RelPath = "営業部\2024\見積.xlsx\4月.2.tsv"
+        $second.RelPath = "営業部\2024\00002.tsv"
         $script:pumpQueue.Enqueue($first)
         $script:pumpQueue.Enqueue($second)
 
@@ -1382,9 +1383,22 @@ Describe "pumpSearch（検索スレッドのヒットを見出しに取り込む
         (@($group.Rows | ForEach-Object { "$($_.LineNumber):$($_.RelPath)" }) -join ",") | Should -Be "1:$($first.RelPath),2:$($second.RelPath)"
     }
 
+    It "同じ RelPath・同じ場所で Book だけ違う 2 件は、別の見出しにする" {
+        $script:pumpQueue.Enqueue((newQueuedHit "Sheet1" 1 "`t見積 山田" "見積.xlsx"))
+        $script:pumpQueue.Enqueue((newQueuedHit "Sheet1" 2 "`t見積 佐藤" "請求.xlsx"))
+
+        pumpSearch
+
+        $script:groupList.Count | Should -Be 2
+        (@($script:groupList | ForEach-Object { "$($_.Book):$($_.HitCount):$($_.Runs.Count)" }) -join ",") | Should -Be "見積.xlsx:1:1,請求.xlsx:1:1"
+        $script:hitCount | Should -Be 2
+    }
+
     It "1 件ずつの形もまとまりも取り込め、開くと届いた順の行になる" {
         $script:pumpQueue.Enqueue((newQueuedHit "4月" 1 "`t見積 山田"))
         $run = newRun "営業部\2024" "見積.xlsx" "4月" @(5, 6) @("`t見積 佐藤", "`t見積 鈴木")
+        $run.RelPath = "営業部\2024\00001.tsv"
+        $run.FileName = "00001.tsv"
         $script:pumpQueue.Enqueue($run)
         $script:pumpQueue.Enqueue((newQueuedHit "4月" 8 "`t見積 高橋"))
 

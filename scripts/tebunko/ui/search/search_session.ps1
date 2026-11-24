@@ -138,8 +138,10 @@ function pumpSearch {
         # 表への反映は、この 1 回の最後に flushResults でまとめて行う。ヒットごとに通る処理なので、
         # 関数は初めてのファイル・場所のときだけ呼ぶ（呼ぶと、そのぶん結果を表に移すのが遅くなる）
         $single = $item -isnot [hashtable]
-        if ($single -and $null -ne $last -and $item.Location -ceq $last.Location -and $item.RelPath -ceq $last.RelPath -and $item.Root -ceq $last.Root) {
-            # 直前と同じ本文インデックスのファイル・同じ場所の 1 件は、そのまとまりに足すだけ（見出し・場所の表記は直前と同じ）
+        if ($single -and $null -ne $last -and $item.Location -ceq $last.Location -and $item.Book -ceq $last.Book -and $item.RelPath -ceq $last.RelPath -and
+                $item.RelDir -ceq $last.RelDir -and $item.Root -ceq $last.Root) {
+            # 直前と同じ元のファイル（見出し）・本文インデックスのファイル・場所の 1 件は、そのまとまりに足すだけ（見出し・場所の表記は直前と同じ。
+            # 本文インデックスのファイル 1 つに元のファイルがいくつも入るので、RelPath だけでなく Book・RelDir も比べる）
             $last.LineNumbers.Add([int]$item.LineNumber)
             $last.Lines.Add($item.Line)
             $lastGroup.HitCount++
