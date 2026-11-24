@@ -14,7 +14,7 @@ description: >-
   動いたワークフロー自身の結果を PR のコメント（ワークフローごとに 1 件）に書く・書き換える。
 inputs:
   workflow-key:
-    description: コメントの目印・表に使う短い id（例 test・title・docs・codeql・gui・perf-check）
+    description: コメントの目印・表に使う短い id（例 test・title・docs・codeql・perf-check）
     required: true
   display-name:
     description: PR のコメントに出す表示名（省略すると workflow-key と同じ）

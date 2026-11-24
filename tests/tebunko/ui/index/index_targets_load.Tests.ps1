@@ -3,6 +3,9 @@
 BeforeAll {
     . "$PSScriptRoot\..\..\..\helpers\load.ps1"
 
+    # 画面のスレッドの分割（stopUiWork ほか。タイマーは偽物）
+    . "$PSScriptRoot\..\..\..\helpers\ui_work.ps1"
+
     $script:statuses = New-Object System.Collections.Generic.List[string]
     $script:jobs = New-Object System.Collections.Generic.List[object]
     $script:calls = New-Object System.Collections.Generic.List[string]

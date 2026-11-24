@@ -2,6 +2,7 @@
 #
 #   .\tools\run_commit_tests.ps1                      ステージした変更に応じたテストを流す
 #   .\tools\run_commit_tests.ps1 -List -Files a,b     変更したファイルを指定し、選んだテストを出すだけ（テスト用）
+#   .\tools\run_commit_tests.ps1 -Base HEAD^1         <Base> から HEAD までの変更に応じたテストを流す（CI の PR。test.yml）
 #
 # 選び方（パスはリポジトリからの相対パス）:
 #   - scripts/<パス>.ps1 は tests/<パス>.Tests.ps1 と、構成を守るテスト（structure・layers）
@@ -9,7 +10,7 @@
 #   - scripts/ の .ps1 は、設計の決まりの検査（tests/meta/error_messages・function_size）も
 #   - docs/design/indexing/errors*.md・log-warnings*.md と docs/design/gui/messages*.md は、links のほか error_messages
 #   - scripts/ の .xaml は structure（XML として読めるか・画面の部品の名前）と table_border（表に外枠を付けない）
-#   - tests/gui/（本物の画面を開くテスト。タグ Gui）は選ばない。CI（gui.yml）と手元の -Tag Gui で流す
+#   - tests/gui/（本物の画面を開くテスト。タグ Gui）は選ばない。毎日の CI（nightly.yml から呼ぶ gui.yml）と手元の -Tag Gui で流す
 #   - tests/ の *.Tests.ps1 はそのテスト自身
 #   - tools/<名前>.ps1 は tests/tools/<名前>.Tests.ps1（無ければ流さない）。check_markdown_links.ps1 は links も
 #   - tools/isolation/*.ps1（既定のワークスペースを守る共通の関数）は tests/tools/run_isolated.Tests.ps1
@@ -18,12 +19,14 @@
 #   - 次のものは、どのテストに効くか分からないため速いテスト（Unit・Meta）を全部流す
 #     対応するテストが無い・消した scripts/ の .ps1、tests/ の上のどれにも当たらないもの（run.ps1・helpers・testdata など）
 #   - それ以外（.github/・画像・設定など）はテストを流さない
+# -Base のとき（CI の PR）は、全部を流すと決めたら、速いテストだけでなく既定のタグ（Unit・Io・Meta）を全部流す。
 # 選んだテストファイルは既定のタグ（Unit・Io・Meta）で流す。文字コードは tools/check_commit.ps1 -Staged が確かめる。
 # あわせて、ステージした scripts・tools・tests の .ps1 だけに PSScriptAnalyzer をかけ（tools/check_analyzer.ps1 -Path）、
 # ベースラインより指摘が増えたら失敗にする。PSScriptAnalyzer が無い手元・Windows PowerShell 以外で動いたときは、注意を出して飛ばす。
 # 全テストと全体の静的解析は CI（test）が確かめる。
 param (
     [string[]]$Files,  # 変更したファイル（既定はステージした変更）
+    [string]$Base,     # 指定すると、ステージした変更の代わりに <Base> から HEAD までの変更を使う（CI の PR）
     [switch]$List,     # テストを流さず、選んだテストファイル（全部なら "all"）を出す
     [switch]$ListAnalyzer,  # 静的解析をかけるファイルを出すだけ（テスト用）
     [switch]$ListAnalyzerVersion,  # 静的解析に使う PSScriptAnalyzer の版（CI が固定した版）を出すだけ（テスト用）
@@ -148,6 +151,9 @@ function runCommitAnalyzer([string[]]$targets, [string]$script, [string]$module,
 if ($PSBoundParameters.ContainsKey("Files")) {
     # powershell.exe -File で呼ぶと、-Files a,b は配列にならず 1 つの文字列で渡るため、カンマで分ける
     $Files = @($Files | ForEach-Object { $_ -split "," } | ForEach-Object { $_.Trim() })
+} elseif ($Base) {
+    $Files = @(git -C $rootDir -c core.quotepath=off diff --name-only --no-renames $Base HEAD)
+    if ($LASTEXITCODE -ne 0) { throw "git diff $Base HEAD が失敗しました" }
 } else {
     # 名前を変えたファイルは、消したファイルと足したファイルに分けて受け取る（消した側も選ぶ材料にするため）
     $Files = @(git -C $rootDir -c core.quotepath=off diff --cached --name-only --no-renames)
@@ -176,12 +182,16 @@ $run = Join-Path $rootDir "tests\run.ps1"
 $testCode = 0
 if ($TestExit -ge 0) {
     $testCode = $TestExit
+} elseif ($selected.All -and $Base) {
+    "既定のテスト（Unit・Io・Meta）を全部流します。" | Out-Host
+    & $run -Quiet
+    $testCode = $LASTEXITCODE
 } elseif ($selected.All) {
     Write-Host "速いテスト（Unit・Meta）を全部流します。"
     & $run -Tag Unit, Meta -Quiet
     $testCode = $LASTEXITCODE
 } elseif ($selected.Paths.Count -eq 0) {
-    Write-Host "ステージした変更に対応するテストはありません（テストは CI で流します）。"
+    Write-Host "変更に対応するテストはありません（全部のテストは CI の毎日の実行で流します）。"
 } else {
     Write-Host "変更に対応するテストを流します: $(($selected.Paths | ForEach-Object { $_ -replace '^tests/', '' }) -join ', ')"
     & $run -Path @($selected.Paths | ForEach-Object { Join-Path $rootDir $_ }) -Quiet
