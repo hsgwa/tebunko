@@ -27,6 +27,29 @@ BeforeAll {
         $group.ShownRows.AddRange($rows)
         return $group
     }
+
+    function newTestRuns {
+        # 1 件ずつの値（Location・LineNumber・Line ほか）を、続けて同じ場所のものを 1 つにした場所ごとのまとまりの一覧にする
+        # （画面の取り込み pumpSearch と同じ形）。@{ Runs; Starts（まとまりごとの先頭の番号）}
+        param ([object[]]$hits)
+
+        $runs = New-Object 'System.Collections.Generic.List[object]'
+        $starts = New-Object 'System.Collections.Generic.List[int]'
+        $count = 0
+        foreach ($hit in $hits) {
+            if ($runs.Count -eq 0 -or $runs[$runs.Count - 1].Location -cne $hit.Location) {
+                $starts.Add($count)
+                $runs.Add(@{
+                    Root = $hit.Root; RelPath = $hit.RelPath; RelDir = $hit.RelDir; FileName = $hit.FileName; Book = $hit.Book; Location = $hit.Location
+                    LineNumbers = New-Object 'System.Collections.Generic.List[int]'; Lines = New-Object 'System.Collections.Generic.List[string]'
+                })
+            }
+            $runs[$runs.Count - 1].LineNumbers.Add([int]$hit.LineNumber)
+            $runs[$runs.Count - 1].Lines.Add($hit.Line)
+            $count++
+        }
+        return @{ Runs = $runs; Starts = $starts }
+    }
 }
 
 Describe "getSearchProgressText / getSearchSummaryText" -Tag Unit {
@@ -203,40 +226,91 @@ Describe "getSortedHitOrder（getHitOrderByLine・getHitOrderByNumber）" -Tag U
         param ($name, $property, $descending, $expected)
         # 該当行と行番号の順位が同じになるように作る（0: b・5 / 1: A・1 / 2: B・5 / 3: a・1）
         $hits = @((newHit "シート" 5 "b"), (newHit "シート" 1 "A"), (newHit "シート" 5 "B"), (newHit "シート" 1 "a"))
-        (getSortedHitOrder $hits $property $descending) -join "," | Should -Be $expected
+        (getSortedHitOrder (newTestRuns $hits).Runs $property $descending) -join "," | Should -Be $expected
     }
 
     It "場所の順 → 行番号の順（A10 が A9 の前に来ない）。降順はその逆で、同じ値は見つかった順" {
         $hits = @((newHit "売上" 10 "x"), (newHit "売上" 9 "x"), (newHit "仕入" 1 "x"), (newHit "売上" 9 "x"))
-        (getSortedHitOrder $hits "Location" $false) -join "," | Should -Be "2,1,3,0"
-        (getSortedHitOrder $hits "Location" $true) -join "," | Should -Be "0,1,3,2"
+        (getSortedHitOrder (newTestRuns $hits).Runs "Location" $false) -join "," | Should -Be "2,1,3,0"
+        (getSortedHitOrder (newTestRuns $hits).Runs "Location" $true) -join "," | Should -Be "0,1,3,2"
     }
 
     It "該当行が無い（null）ヒットは空として扱う" {
         $hits = @((newHit "シート" 1 "b"), (newHit "シート" 2 $null), (newHit "シート" 3 "a"))
-        (getSortedHitOrder $hits "Line" $false) -join "," | Should -Be "1,2,0"
+        (getSortedHitOrder (newTestRuns $hits).Runs "Line" $false) -join "," | Should -Be "1,2,0"
     }
 
     It "種別（Kind）は、場所ごとの種別の順。同じ種別の中は見つかった順（降順も同じ）" {
         $hits = @((newHit "売上" 1 "x"), (newHit "売上[図形]" 1 "x"), (newHit "仕入" 1 "x"), (newHit "売上[コメント]" 1 "x"))
         $kinds = @{ "売上" = "セル"; "仕入" = "セル"; "売上[図形]" = "図形"; "売上[コメント]" = "コメント" }
-        $asc = getSortedHitOrder $hits "Kind" $false $kinds
+        $asc = getSortedHitOrder (newTestRuns $hits).Runs "Kind" $false $kinds
         # カルチャーの順は Sort-Object と同じ
         $expected = @($hits | ForEach-Object { $kinds[$_.Location] } | Sort-Object -Unique)
         (@($asc | ForEach-Object { $kinds[$hits[$_].Location] } | Select-Object -Unique)) -join "," | Should -Be ($expected -join ",")
         $ties = @($asc | Where-Object { $kinds[$hits[$_].Location] -eq "セル" })
         $ties -join "," | Should -Be "0,2"
-        $desc = getSortedHitOrder $hits "Kind" $true $kinds
+        $desc = getSortedHitOrder (newTestRuns $hits).Runs "Kind" $true $kinds
         (@($desc | ForEach-Object { $kinds[$hits[$_].Location] } | Select-Object -Unique)) -join "," | Should -Be ((@($expected)[($expected.Count - 1)..0]) -join ",")
         @($desc | Where-Object { $kinds[$hits[$_].Location] -eq "セル" }) -join "," | Should -Be "0,2"
     }
 
     It "並べ替えない項目は null" {
-        $null -eq (getSortedHitOrder @((newHit "シート" 1 "a")) "Order" $false) | Should -Be $true
+        $null -eq (getSortedHitOrder (newTestRuns @((newHit "シート" 1 "a"))).Runs "Order" $false) | Should -Be $true
     }
 
     It "ヒットが 0 件でも落ちない" {
         (getSortedHitOrder @() "Line" $false).Count | Should -Be 0
+    }
+
+    It "同じ場所の行が 1 つのまとまりでも、1 件ずつのまとまりでも、同じ順（<property>）" -TestCases @(
+        @{ property = "Line" }
+        @{ property = "LineNumber" }
+        @{ property = "Location" }
+        @{ property = "Kind" }
+    ) {
+        param ($property)
+        $hits = @((newHit "売上" 3 "b"), (newHit "売上" 1 "a"), (newHit "仕入" 2 "c"), (newHit "売上" 2 "a"))
+        $kinds = @{ "売上" = "セル"; "仕入" = "図形" }
+        $single = New-Object 'System.Collections.Generic.List[object]'
+        foreach ($hit in $hits) { $single.Add((newTestRuns @($hit)).Runs[0]) }
+        (newTestRuns $hits).Runs.Count | Should -Be 3
+        (getSortedHitOrder (newTestRuns $hits).Runs $property $false $kinds) -join "," | Should -Be ((getSortedHitOrder $single $property $false $kinds) -join ",")
+    }
+}
+
+Describe "getGroupHit（ヒットの番号 → まとまりと、まとまりの中の位置）" -Tag Unit {
+    BeforeAll {
+        # まとまり 3 つ（2 行・1 行・3 行。先頭の番号は 0・2・3）
+        $hits = @("a", "b") | ForEach-Object { [pscustomobject]@{ Location = "1"; LineNumber = 1; Line = $_ } }
+        $hits += [pscustomobject]@{ Location = "2"; LineNumber = 1; Line = "c" }
+        $hits += @("d", "e", "f") | ForEach-Object { [pscustomobject]@{ Location = "3"; LineNumber = 1; Line = $_ } }
+        $script:groupHitRuns = newTestRuns $hits
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "先頭"; index = 0; run = 0; offset = 0 }
+        @{ name = "まとまりの中"; index = 1; run = 0; offset = 1 }
+        @{ name = "境目（次のまとまりの先頭）"; index = 2; run = 1; offset = 0 }
+        @{ name = "1 行のまとまりの次の境目"; index = 3; run = 2; offset = 0 }
+        @{ name = "末尾"; index = 5; run = 2; offset = 2 }
+    ) {
+        param ($name, $index, $run, $offset)
+        $found = getGroupHit $script:groupHitRuns.Runs $script:groupHitRuns.Starts $index
+        [object]::ReferenceEquals($found.Run, $script:groupHitRuns.Runs[$run]) | Should -BeTrue
+        $found.Offset | Should -Be $offset
+        $found.Run.Lines[$found.Offset] | Should -Be ([string][char]([int][char]"a" + $index))
+    }
+
+    It "範囲の外（<name>）は null" -TestCases @(
+        @{ name = "末尾の次"; index = 6 }
+        @{ name = "負"; index = -1 }
+    ) {
+        param ($name, $index)
+        $null -eq (getGroupHit $script:groupHitRuns.Runs $script:groupHitRuns.Starts $index) | Should -BeTrue
+    }
+
+    It "まとまりが無ければ null" {
+        $null -eq (getGroupHit @() @() 0) | Should -BeTrue
     }
 }
 
@@ -462,7 +536,10 @@ Describe "getNextSortDirection・testSortStateActive" -Tag Unit {
 
 Describe "getOrderedHits" -Tag Unit {
     BeforeAll {
-        $script:orderedHits = @("a", "b", "c") | ForEach-Object { [pscustomobject]@{ Line = $_ } }
+        # a・b は同じ場所（1 つのまとまり）、c は別の場所
+        $hits = @("a", "b") | ForEach-Object { [pscustomobject]@{ Location = "シート"; LineNumber = 1; Line = $_ } }
+        $hits += [pscustomobject]@{ Location = "別"; LineNumber = 1; Line = "c" }
+        $script:orderedRuns = newTestRuns $hits
     }
 
     It "<name>" -ForEach @(
@@ -474,10 +551,18 @@ Describe "getOrderedHits" -Tag Unit {
     ) {
         $rowItems = if ($null -eq $rows) { $null } else { @($rows | ForEach-Object { [pscustomobject]@{ Order = $_ } }) }
 
-        (getOrderedHits $script:orderedHits $order $rowItems | ForEach-Object { $_.Line }) -join "," | Should -Be $expected
+        (getOrderedHits $script:orderedRuns.Runs $script:orderedRuns.Starts $order $rowItems | ForEach-Object { $_.Line }) -join "," | Should -Be $expected
     }
 
     It "ヒットが 0 件なら空" {
-        (getOrderedHits @() $null @()).Count | Should -Be 0
+        (getOrderedHits @() @() $null @()).Count | Should -Be 0
+    }
+
+    It "1 件ずつの値は、まとまりの項目と、その行の行番号・該当行を持つ" {
+        $run = @{ Root = "C:\idx"; RelPath = "営業\a.xlsx\4月.tsv"; RelDir = "営業"; FileName = "4月.tsv"; Book = "a.xlsx"; Location = "4月"
+            LineNumbers = [System.Collections.Generic.List[int]]@(3, 9); Lines = [System.Collections.Generic.List[string]]@("x", "y") }
+        $item = (getOrderedHits @($run) @(0) @(1, 0) $null)[0]
+        "$($item.Root)|$($item.RelPath)|$($item.RelDir)|$($item.FileName)|$($item.Book)|$($item.Location)|$($item.LineNumber)|$($item.Line)" |
+            Should -Be "C:\idx|営業\a.xlsx\4月.tsv|営業|4月.tsv|a.xlsx|4月|9|y"
     }
 }

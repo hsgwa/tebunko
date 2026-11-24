@@ -127,24 +127,35 @@ function pumpSearch {
         return
     }
     $shared = $s.Shared
-    $run = $null
+    $item = $null
     # 1 回に移す量は件数ではなく時間で区切る（件数で区切ると、ヒットが多いときに画面が 0.5 秒以上止まる）
     $elapsed = [System.Diagnostics.Stopwatch]::StartNew()
-    while ($elapsed.ElapsedMilliseconds -lt ${searchPumpMilliseconds} -and $shared.Queue.TryDequeue([ref]$run)) {
-        # ヒット（場所ごとのまとまり）は元のファイルの見出しにそのまま貯めるだけにする。表の行（HitRow）は開いたときなどに作り（ensureRows）、
+    while ($elapsed.ElapsedMilliseconds -lt ${searchPumpMilliseconds} -and $shared.Queue.TryDequeue([ref]$item)) {
+        # ヒットは元のファイルの見出しに、場所ごとのまとまり（Runs）のまま貯めるだけにする。表の行（HitRow）は開いたときなどに作り（ensureRows）、
         # 表への反映は、この 1 回の最後に flushResults でまとめて行う。ヒットごとに通る処理なので、
         # 関数は初めてのファイル・場所のときだけ呼ぶ（呼ぶと、そのぶん結果を表に移すのが遅くなる）
-        $relDir = [string]$run.RelDir
-        $fileKey = "$($run.Root)\$relDir\$($run.Book)"
+        $relDir = [string]$item.RelDir
+        $fileKey = "$($item.Root)\$relDir\$($item.Book)"
         $group = $null
         if (!$script:fileGroups.TryGetValue($fileKey, [ref]$group)) {
-            $group = newFileGroup $fileKey $relDir $run.Book
+            $group = newFileGroup $fileKey $relDir $item.Book
         }
-        $group.Runs.Add($run)
-        $rowCount = $run.Lines.Count
+        $last = $(if ($group.Runs.Count -gt 0) { $group.Runs[$group.Runs.Count - 1] } else { $null })
+        if ($null -eq $item.LineNumbers -and $null -ne $last -and [string]$last.Location -ceq [string]$item.Location) {
+            # 1 件ずつの形が、直前のまとまり（見出しの Runs の最後）と同じ場所なら、そのまとまりに足す（まとまりを増やさない）
+            $last.LineNumbers.Add([int]$item.LineNumber)
+            $last.Lines.Add($item.Line)
+            $rowCount = 1
+        } else {
+            # まとまりはそのまま、1 件ずつの形は 1 行のまとまりにして足す
+            $run = $(if ($null -ne $item.LineNumbers) { $item } else { newSingleHitRun $item })
+            $rowCount = $run.Lines.Count
+            $group.RunStarts.Add($group.HitCount)
+            $group.Runs.Add($run)
+        }
         $group.HitCount += $rowCount
-        if ($group.AddLocation($run.Location)) {
-            addFileGroupLocation $group $run.Book $run.Location
+        if ($group.AddLocation($item.Location)) {
+            addFileGroupLocation $group $item.Book $item.Location
         }
         [void]$script:dirtyGroups.Add($group)
         $script:hitCount += $rowCount

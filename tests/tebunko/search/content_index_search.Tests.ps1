@@ -1256,3 +1256,35 @@ Describe "分けた塊（版 3）のファイルの検索" -Tag Io {
         $result.Skipped.Count | Should -Be 0
     }
 }
+
+Describe "expandHitRuns・getHitRunCount（場所ごとのまとまり → 1 件ずつの形・行の数）" -Tag Unit {
+    BeforeAll {
+        function newTestRun {
+            param ([string]$location, [int[]]$numbers, [string[]]$lines)
+            return @{
+                Root = "C:\idx"; RelPath = "営業\a.xlsx\$location.tsv"; RelDir = "営業"; FileName = "$location.tsv"; Book = "a.xlsx"; Location = $location
+                LineNumbers = [System.Collections.Generic.List[int]]$numbers; Lines = [System.Collections.Generic.List[string]]$lines
+            }
+        }
+    }
+
+    It "まとまりの順・まとまりの中の順のまま、今の 1 件ずつの形（同じ項目）にする" {
+        $runs = @((newTestRun "4月" @(3, 9) @("x", "y")), (newTestRun "5月" @(1) @("z")))
+
+        $hits = expandHitRuns $runs
+
+        $hits.Count | Should -Be 3
+        $hits[0] | Should -BeOfType [pscustomobject]
+        (@($hits[0].PSObject.Properties.Name) -join ",") | Should -Be "Root,RelPath,RelDir,FileName,Book,Location,LineNumber,Line"
+        (@($hits | ForEach-Object { "$($_.RelPath)|$($_.Location)|$($_.LineNumber)|$($_.Line)" }) -join ";") |
+            Should -Be "営業\a.xlsx\4月.tsv|4月|3|x;営業\a.xlsx\4月.tsv|4月|9|y;営業\a.xlsx\5月.tsv|5月|1|z"
+        getHitRunCount $runs | Should -Be 3
+    }
+
+    It "まとまりが無ければ、空の配列と 0" {
+        $hits = expandHitRuns @()
+        , $hits | Should -BeOfType [object[]]
+        $hits.Count | Should -Be 0
+        getHitRunCount @() | Should -Be 0
+    }
+}

@@ -159,22 +159,28 @@ function addHitRow {
     }
 }
 
-function updateGroupHitItems {
-    # 並べ替えているファイルの、まとまりを 1 件ずつの値（HitItems）に広げる。まだ広げていないまとまりだけを足す（検索中に増えた分）
+function newSingleHitRun {
+    # 1 件ずつの形のヒット（PSCustomObject。Root; RelPath; RelDir; FileName; Book; Location; LineNumber; Line）を、1 行のまとまりにする（pumpSearch）
     param (
-        [FileGroup]$group
+        $hit
     )
 
-    if ($group.ItemRun -lt $group.Runs.Count) {
-        $group.HitItems.AddRange((expandHitRuns $group.Runs.GetRange($group.ItemRun, $group.Runs.Count - $group.ItemRun)))
-        $group.ItemRun = $group.Runs.Count
+    $numbers = New-Object 'System.Collections.Generic.List[int]'
+    $numbers.Add([int]$hit.LineNumber)
+    $lines = New-Object 'System.Collections.Generic.List[string]'
+    $lines.Add($hit.Line)
+    return @{
+        Root = $hit.Root; RelPath = $hit.RelPath; RelDir = $hit.RelDir; FileName = $hit.FileName
+        Book = $hit.Book; Location = $hit.Location; LineNumbers = $numbers; Lines = $lines
     }
 }
 
 function ensureRows {
     # ファイルのヒットのうち、まだ表の行（HitRow）にしていないものを、先頭から target 件目まで行にする（既定は全部。
     # 絞り込みに合うものは ShownRows にも入れる）。行を作るのは重い（1 万行で 1 秒を超える）ので、画面に出す分だけを渡す。
-    # 並べ替えていないときは、まとまりの中を RowRun・RowOffset から順にたどる。並べ替えているとき（HitOrder）は、広げた値（HitItems）から作る
+    # 並べ替えていないときは、まとまりを RowRun から順にたどる。まとまりの中の位置は、作った行の数 - RunStarts[RowRun] で毎回求め、
+    # RowRun は次の行が先のまとまりにあるときだけ進める（検索中に最後のまとまりへ行が足されても、抜かさず、範囲の外も読まない）。
+    # 並べ替えているとき（HitOrder）は、その番号のヒットを getGroupHit で読む
     param (
         [FileGroup]$group,
         [int]$target = -1
@@ -183,23 +189,25 @@ function ensureRows {
     $end = $(if ($target -lt 0 -or $target -gt $group.HitCount) { $group.HitCount } else { $target })
     $shown = testGroupShown $group
     $order = $group.HitOrder
-    if ($null -ne $order -and $group.Rows.Count -lt $end) {
-        updateGroupHitItems $group
+    if ($group.RowRun -gt 0 -and $group.RunStarts[$group.RowRun] -gt $group.Rows.Count) {
+        # 行を作り直すとき（並べ替えで Rows を空にしたなど）は先頭から
+        $group.RowRun = 0
     }
     for ($i = $group.Rows.Count; $i -lt $end; $i++) {
         if ($null -ne $order) {
             $hitIndex = $(if ($i -lt $order.Length) { $order[$i] } else { $i })
-            $hit = $group.HitItems[$hitIndex]
-            addHitRow $group $hit ([int]$hit.LineNumber) $hit.Line $hitIndex $shown
+            $found = getGroupHit $group.Runs $group.RunStarts $hitIndex
+            addHitRow $group $found.Run $found.Run.LineNumbers[$found.Offset] $found.Run.Lines[$found.Offset] $hitIndex $shown
             continue
         }
         $run = $group.Runs[$group.RowRun]
-        addHitRow $group $run $run.LineNumbers[$group.RowOffset] $run.Lines[$group.RowOffset] $i $shown
-        $group.RowOffset++
-        if ($group.RowOffset -ge $run.Lines.Count) {
+        $offset = $i - $group.RunStarts[$group.RowRun]
+        while ($offset -ge $run.Lines.Count) {
             $group.RowRun++
-            $group.RowOffset = 0
+            $run = $group.Runs[$group.RowRun]
+            $offset = $i - $group.RunStarts[$group.RowRun]
         }
+        addHitRow $group $run $run.LineNumbers[$offset] $run.Lines[$offset] $i $shown
     }
 }
 
@@ -521,17 +529,12 @@ function applySort {
 
     foreach ($group in $script:groupList) {
         if ($group.HitCount -gt ${groupRowLimit}) {
-            updateGroupHitItems $group
-            $group.HitOrder = getSortedHitOrder $group.HitItems $property $descending $(if ($property -eq "Kind") { getKindByLocation $group } else { @{} })
-            if ($null -eq $group.HitOrder) { $group.HitItems.Clear(); $group.ItemRun = 0 }
+            $group.HitOrder = getSortedHitOrder $group.Runs $property $descending $(if ($property -eq "Kind") { getKindByLocation $group } else { @{} })
             $group.Rows.Clear()
             $group.RowRun = 0
-            $group.RowOffset = 0
             $group.RowLimit = 0
         } else {
             $group.HitOrder = $null
-            $group.HitItems.Clear()
-            $group.ItemRun = 0
         }
         ensureRows $group (getSortRowTarget $group.HitCount)
     }
@@ -592,7 +595,7 @@ function getExportHits {
         $ordered = New-Object 'System.Collections.Generic.List[object]'
         foreach ($group in $script:groupList) {
             if (testHitFilter $group.Book $filterText) {
-                $ordered.AddRange((getOrderedHits (expandHitRuns $group.Runs) $group.HitOrder $group.Rows))
+                $ordered.AddRange((getOrderedHits $group.Runs $group.RunStarts $group.HitOrder $group.Rows))
             }
         }
         return , $ordered.ToArray()

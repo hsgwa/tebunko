@@ -99,7 +99,15 @@ BeforeAll {
         if (!$script:fileGroups.TryGetValue($key, [ref]$group)) {
             $group = newFileGroup $key $relDir $book
         }
-        $group.Runs.Add((newRun $relDir $book $location $lineNumber $line))
+        # 取り込み（pumpSearch）と同じく、直前のまとまりと同じ場所ならそこに足し、違えば新しいまとまりにする
+        $last = $(if ($group.Runs.Count -gt 0) { $group.Runs[$group.Runs.Count - 1] } else { $null })
+        if ($null -ne $last -and $last.Location -ceq $location) {
+            $last.LineNumbers.Add($lineNumber)
+            $last.Lines.Add($line)
+        } else {
+            $group.RunStarts.Add($group.HitCount)
+            $group.Runs.Add((newRun $relDir $book $location $lineNumber $line))
+        }
         $group.HitCount++
         [void]$group.AddLocation($location)
         addFileGroupLocation $group $book $location
@@ -282,6 +290,7 @@ Describe "ensureRows" -Tag Unit {
         $run = newRun "" "見積.xlsx" "4月" 1 "`t見積"
         $run.RelPath = "見積.xlsx\4月.tsv"
         $run.RelDir = $null
+        $group.RunStarts.Add(0)
         $group.Runs.Add($run)
         $group.HitCount++
 
@@ -1184,6 +1193,7 @@ Describe "場所ごとのまとまりの取り込み" -Tag Unit {
             if (!$script:fileGroups.TryGetValue($key, [ref]$group)) {
                 $group = newFileGroup $key $relDir $book
             }
+            $group.RunStarts.Add($group.HitCount)
             $group.Runs.Add((newRun $relDir $book $location $lineNumbers $lines))
             $group.HitCount += $lines.Count
             [void]$group.AddLocation($location)
@@ -1242,6 +1252,98 @@ Describe "場所ごとのまとまりの取り込み" -Tag Unit {
         $group.Rows.Count | Should -Be 4
         (@($group.Rows | ForEach-Object { $_.Order } | Sort-Object) -join ",") | Should -Be "0,1,2,3"
         (@($group.Rows | ForEach-Object { $_.LineNumber } | Sort-Object) -join ",") | Should -Be "1,2,7,8"
+    }
+
+    It "最後のまとまりまで行を作ったあと、同じまとまりに 1 件足されたら、次の ensureRows でその行だけを作る（抜けず、範囲の外を読まない）" {
+        $group = addRun "見積.xlsx" "4月" @(1, 2) @("`t見積 山田", "`t見積 佐藤")
+        flushResults
+        ensureRows $group
+        $first = @($group.Rows)
+        # 検索中に、同じ場所の 1 件が最後のまとまりに足される（pumpSearch の取り込み）
+        $group.Runs[0].LineNumbers.Add(3)
+        $group.Runs[0].Lines.Add("`t見積 鈴木")
+        $group.HitCount++
+
+        ensureRows $group
+
+        $group.Runs.Count | Should -Be 1
+        $group.Rows.Count | Should -Be 3
+        [object]::ReferenceEquals($group.Rows[0], $first[0]) | Should -BeTrue
+        [object]::ReferenceEquals($group.Rows[1], $first[1]) | Should -BeTrue
+        (@($group.Rows | ForEach-Object { "$($_.LineNumber):$($_.Order)" }) -join ",") | Should -Be "1:0,2:1,3:2"
+
+        [void](addRun "見積.xlsx" "5月" @(7) @("`t見積 高橋"))
+        ensureRows $group
+
+        (@($group.Rows | ForEach-Object { "$($_.Location):$($_.LineNumber):$($_.Order)" }) -join ",") | Should -Be "4月:1:0,4月:2:1,4月:3:2,5月:7:3"
+    }
+}
+
+Describe "pumpSearch（検索スレッドのヒットを見出しに取り込む）" -Tag Unit {
+    BeforeAll {
+        # 関数だけを search_session.ps1 から取り出す（ファイルは画面を作る処理を含むため、そのままは読み込まない）
+        $tokens = $null
+        $errors = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile("${scriptsDir}\tebunko\ui\search\search_session.ps1", [ref]$tokens, [ref]$errors)
+        $definition = $ast.Find({ param ($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq "pumpSearch" }, $true)
+        . ([scriptblock]::Create($definition.Extent.Text))
+        ${searchPumpMilliseconds} = 60000
+        $script:searchService = [pscustomobject]@{}
+        $script:searchService | Add-Member ScriptMethod IsRunning { return $true }
+
+        function newQueuedHit {
+            param ([string]$location, [int]$lineNumber, [string]$line)
+            return [pscustomobject]@{
+                Root = "C:\tebunko\work\index"; RelPath = "営業部\2024\見積.xlsx\$location.tsv"; RelDir = "営業部\2024"
+                FileName = "$location.tsv"; Book = "見積.xlsx"; Location = $location; LineNumber = $lineNumber; Line = $line
+            }
+        }
+    }
+
+    BeforeEach {
+        resetResults
+        $script:pumpQueue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'
+        $script:search = @{ TraceFirstRow = $true; Shared = @{ Queue = $script:pumpQueue; Total = 0; Stop = $false; Finished = $false } }
+    }
+
+    AfterAll {
+        $script:search = $null
+    }
+
+    It "直前のまとまりと同じ Location の 1 件は、そのまとまりに足し、Runs.Count を増やさない" {
+        $script:pumpQueue.Enqueue((newQueuedHit "4月" 1 "`t見積 山田"))
+        $script:pumpQueue.Enqueue((newQueuedHit "4月" 2 "`t見積 佐藤"))
+        $script:pumpQueue.Enqueue((newQueuedHit "5月" 7 "`t見積 鈴木"))
+        $script:pumpQueue.Enqueue((newQueuedHit "4月" 9 "`t見積 高橋"))
+
+        pumpSearch
+
+        $group = $script:groupList[0]
+        $script:groupList.Count | Should -Be 1
+        $group.Runs.Count | Should -Be 3
+        ($group.RunStarts -join ",") | Should -Be "0,2,3"
+        ($group.Runs[0].LineNumbers -join ",") | Should -Be "1,2"
+        $group.HitCount | Should -Be 4
+        $script:hitCount | Should -Be 4
+        $script:pumpQueue.IsEmpty | Should -BeTrue
+    }
+
+    It "1 件ずつの形もまとまりも取り込め、開くと届いた順の行になる" {
+        $script:pumpQueue.Enqueue((newQueuedHit "4月" 1 "`t見積 山田"))
+        $run = newRun "営業部\2024" "見積.xlsx" "4月" @(5, 6) @("`t見積 佐藤", "`t見積 鈴木")
+        $script:pumpQueue.Enqueue($run)
+        $script:pumpQueue.Enqueue((newQueuedHit "4月" 8 "`t見積 高橋"))
+
+        pumpSearch
+
+        $group = $script:groupList[0]
+        # まとまりはそのまま足す（直前と同じ場所でも、まとまりを組み直さない）。その後の 1 件は、届いたまとまりに足す
+        $group.Runs.Count | Should -Be 2
+        [object]::ReferenceEquals($group.Runs[1], $run) | Should -BeTrue
+        ($group.RunStarts -join ",") | Should -Be "0,1"
+        $group.HitCount | Should -Be 4
+        ensureRows $group
+        (@($group.Rows | ForEach-Object { "$($_.LineNumber):$($_.Order)" }) -join ",") | Should -Be "1:0,5:1,6:2,8:3"
     }
 }
 
