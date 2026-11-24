@@ -124,10 +124,10 @@ BeforeAll {
     }
 
     function expandExportHits {
-        # getExportHits の戻り値（ファイルごとの @{ Runs; Order }）を、書き出す司令のスレッドと同じく 1 件ずつの値にする（expandExportPart）
+        # getExportHits の戻り値（ファイルごとの @{ Runs; Order }）を、書き出す司令のスレッドと同じく 1 件ずつの値にする（expandHitRuns）
         param ($parts)
         $hits = New-Object 'System.Collections.Generic.List[object]'
-        foreach ($part in $parts) { $hits.AddRange([object[]](expandExportPart $part)) }
+        foreach ($part in $parts) { $hits.AddRange([object[]](expandHitRuns $part.Runs $part.Order)) }
         return , $hits.ToArray()
     }
 
@@ -1226,7 +1226,8 @@ Describe "場所ごとのまとまりの取り込み" -Tag Unit {
         }
     }
 
-    It "同じ元のファイルの 2 つの場所のまとまりは、見出し 1 つ・件数は合計で、行はまだ作らない" {
+    It "まとまりを取り込んでも見出しと行が同じ" {
+        # 同じ元のファイルの 2 つの場所のまとまり → 見出し 1 つ・件数は合計・場所の表記は 2 つ・行はまだ作らない
         $group = addRun "見積.xlsx" "4月" @(1, 2) @("`t見積 山田", "`t見積 佐藤")
         [void](addRun "見積.xlsx" "5月" @(7) @("`t見積 鈴木"))
 
@@ -1238,6 +1239,21 @@ Describe "場所ごとのまとまりの取り込み" -Tag Unit {
         $group.ShownCount | Should -Be 3
         $group.Runs.Count | Should -Be 2
         $group.Rows.Count | Should -Be 0
+        $group.LocationText | Should -Be "[シート]4月 ほか 1 か所"
+        $group.LocationPrefix | Should -Be "[シート]4月 ほか 1 か所 ・ "
+
+        # 開くと、HitRow の値・Order・行の場所の表記が、1 件ずつ取り込んだときと同じ
+        toggleFileGroup $group
+        $runRows = @($group.Rows | ForEach-Object { "$($_.Book)|$($_.Location)|$($_.PlaceText)|$($_.LineNumber)|$($_.Line)|$($_.Order)" })
+        resetResults
+        $single = addHit "見積.xlsx" "4月" "`t見積 山田" 1
+        [void](addHit "見積.xlsx" "4月" "`t見積 佐藤" 2)
+        [void](addHit "見積.xlsx" "5月" "`t見積 鈴木" 7)
+        flushResults
+        toggleFileGroup $single
+        $single.LocationPrefix | Should -Be "[シート]4月 ほか 1 か所 ・ "
+        ($runRows -join ";") | Should -Be (@($single.Rows | ForEach-Object { "$($_.Book)|$($_.Location)|$($_.PlaceText)|$($_.LineNumber)|$($_.Line)|$($_.Order)" }) -join ";")
+        ($runRows -join ";") | Should -BeLike "*|4月|*|1|*見積 山田|0;*|4月|*|2|*|1;*|5月|*|7|*|2"
     }
 
     It "開くと、行が値・順そのままに作られる" {
@@ -1307,8 +1323,8 @@ Describe "pumpSearch（検索スレッドのヒットを見出しに取り込む
         $tokens = $null
         $errors = $null
         $ast = [System.Management.Automation.Language.Parser]::ParseFile("${scriptsDir}\tebunko\ui\search\search_session.ps1", [ref]$tokens, [ref]$errors)
-        $definition = $ast.Find({ param ($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq "pumpSearch" }, $true)
-        . ([scriptblock]::Create($definition.Extent.Text))
+        $definitions = $ast.FindAll({ param ($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -in @("pumpSearch", "showSearchProgress") }, $true)
+        foreach ($definition in $definitions) { . ([scriptblock]::Create($definition.Extent.Text)) }
         ${searchPumpMilliseconds} = 60000
         $script:searchService = [pscustomobject]@{}
         $script:searchService | Add-Member ScriptMethod IsRunning { return $true }
@@ -1348,6 +1364,22 @@ Describe "pumpSearch（検索スレッドのヒットを見出しに取り込む
         $group.HitCount | Should -Be 4
         $script:hitCount | Should -Be 4
         $script:pumpQueue.IsEmpty | Should -BeTrue
+    }
+
+    It "同じ場所でも、本文インデックスのファイル（RelPath）が違う 1 件は、新しいまとまりにする（分けたファイルの塊をまたがない）" {
+        $first = newQueuedHit "4月" 1 "`t見積 山田"
+        $second = newQueuedHit "4月" 2 "`t見積 佐藤"
+        $second.RelPath = "営業部\2024\見積.xlsx\4月.2.tsv"
+        $script:pumpQueue.Enqueue($first)
+        $script:pumpQueue.Enqueue($second)
+
+        pumpSearch
+
+        $group = $script:groupList[0]
+        $group.Runs.Count | Should -Be 2
+        ($group.RunStarts -join ",") | Should -Be "0,1"
+        ensureRows $group
+        (@($group.Rows | ForEach-Object { "$($_.LineNumber):$($_.RelPath)" }) -join ",") | Should -Be "1:$($first.RelPath),2:$($second.RelPath)"
     }
 
     It "1 件ずつの形もまとまりも取り込め、開くと届いた順の行になる" {

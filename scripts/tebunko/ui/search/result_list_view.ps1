@@ -300,7 +300,7 @@ function getSortedHitOrder {
 
 function getExportHitOrder {
     # 結果の出力で、ファイルのヒットを書く順（見つかった順の番号の並び）。$null は見つかった順のまま（1 件ずつの値は作らない。
-    # 番号から 1 件ずつに広げるのは、書き出す司令のスレッド。search_export.ps1 の expandExportPart）。
+    # 番号から 1 件ずつに広げるのは、書き出す司令のスレッド。search_export.ps1 の writeSearchExportShown が expandHitRuns で）。
     #   hitOrder の長さがヒットの数と同じなら、その順（getSortedHitOrder。ヒットが多いファイル）
     #   無く、行が全部作ってあれば（rows の数 = ヒットの数）、行の Order（見つかった順の番号）の順 = 並べ替えた表の順
     #   それ以外（行が足りない・並べ替えない列）は $null

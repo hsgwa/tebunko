@@ -431,21 +431,51 @@ function getHitRunCount {
 }
 
 
-function expandHitRuns {
-    # まとまりの一覧を、1 行ずつの PSCustomObject（Root; RelPath; RelDir; FileName; Book; Location; LineNumber; Line）の一覧にする（同じ順）。
-    # 出力・計測・テストなど、1 件ずつの形が要るときだけ使う（検索の途中では作らない）。配列で返す（List[object] を @() に渡すと型が合わずに落ちるため）
+function getHitRunIndex {
+    # まとまりの一覧の、ヒットの番号（見つかった順の 0 始まり）→ まとまりの番号（RunOf）・まとまりの中の位置（OffsetOf）の表。
+    # 多くのヒットを番号の順に読むとき（expandHitRuns・並べ替えた順で多くの行を作る ensureRows）に 1 回だけ作る
     param (
         $runs
     )
 
-    $rows = New-Object System.Collections.Generic.List[object]
-    foreach ($run in $runs) {
-        for ($i = 0; $i -lt $run.Lines.Count; $i++) {
-            $rows.Add([pscustomobject]@{
-                Root = $run.Root; RelPath = $run.RelPath; RelDir = $run.RelDir; FileName = $run.FileName
-                Book = $run.Book; Location = $run.Location; LineNumber = $run.LineNumbers[$i]; Line = $run.Lines[$i]
-            })
+    $count = getHitRunCount $runs
+    $runOf = New-Object 'int[]' $count
+    $offsetOf = New-Object 'int[]' $count
+    $index = 0
+    for ($r = 0; $r -lt $runs.Count; $r++) {
+        for ($i = 0; $i -lt $runs[$r].Lines.Count; $i++) {
+            $runOf[$index] = $r
+            $offsetOf[$index] = $i
+            $index++
         }
+    }
+    return @{ RunOf = $runOf; OffsetOf = $offsetOf }
+}
+
+
+function expandHitRuns {
+    # まとまりの一覧を、1 行ずつの PSCustomObject（Root; RelPath; RelDir; FileName; Book; Location; LineNumber; Line）の一覧にする。
+    # order（見つかった順の 0 始まりの番号の並び）があればその順、無ければ見つかった順。番号 → まとまりと位置の表を 1 回作ってから並べる（番号ごとに探さない）。
+    # 出力（search_export.ps1 の writeSearchExportShown。書き出す司令のスレッド）・計測・テストなど、1 件ずつの形が要るときだけ使う（検索の途中では作らない）。
+    # 配列で返す（List[object] を @() に渡すと型が合わずに落ちるため）
+    param (
+        $runs,
+        $order = $null
+    )
+
+    $table = getHitRunIndex $runs
+    $runOf = $table.RunOf
+    $offsetOf = $table.OffsetOf
+    $total = $(if ($null -eq $order) { $runOf.Length } else { $order.Count })
+    $rows = New-Object 'System.Collections.Generic.List[object]' $total
+    for ($k = 0; $k -lt $total; $k++) {
+        $number = $(if ($null -eq $order) { $k } else { $order[$k] })
+        $run = $runs[$runOf[$number]]
+        $i = $offsetOf[$number]
+        $rows.Add([pscustomobject]@{
+            Root = $run.Root; RelPath = $run.RelPath; RelDir = $run.RelDir; FileName = $run.FileName
+            Book = $run.Book; Location = $run.Location; LineNumber = $run.LineNumbers[$i]; Line = $run.Lines[$i]
+        })
     }
     return , $rows.ToArray()
 }

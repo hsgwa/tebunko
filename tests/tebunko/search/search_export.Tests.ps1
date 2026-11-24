@@ -465,30 +465,3 @@ Describe "書き手(sink)の開閉" -Tag Io {
         { abortSearchExportSink $null } | Should -Not -Throw
     }
 }
-
-Describe "expandExportPart（ファイルごとのまとまり → 書く順の 1 件ずつの値）" -Tag Unit {
-    BeforeAll {
-        function newPartRun {
-            param ([string]$location, [int[]]$numbers, [string[]]$lines)
-            return @{
-                Root = "C:\idx"; RelPath = "営業\a.xlsx\$location.tsv"; RelDir = "営業"; FileName = "$location.tsv"; Book = "a.xlsx"; Location = $location
-                LineNumbers = [System.Collections.Generic.List[int]]$numbers; Lines = [System.Collections.Generic.List[string]]$lines
-            }
-        }
-        $script:partRuns = @((newPartRun "4月" @(3, 9) @("x", "y")), (newPartRun "5月" @(1) @("z")), (newPartRun "6月" @(2, 4, 8) @("p", "q", "r")))
-    }
-
-    It "<Name>" -ForEach @(
-        @{ Name = "Order が無ければ、見つかった順"; Order = $null; Expected = "4月:3:x,4月:9:y,5月:1:z,6月:2:p,6月:4:q,6月:8:r" }
-        @{ Name = "Order があれば、その番号の順（まとまりの境目をまたぐ）"; Order = @(5, 2, 0, 3, 1, 4); Expected = "6月:8:r,5月:1:z,4月:3:x,6月:2:p,4月:9:y,6月:4:q" }
-    ) {
-        $hits = expandExportPart @{ Runs = $script:partRuns; Order = $Order }
-        (@($hits | ForEach-Object { "$($_.Location):$($_.LineNumber):$($_.Line)" }) -join ",") | Should -Be $Expected
-        (@($hits[0].PSObject.Properties.Name) -join ",") | Should -Be "Root,RelPath,RelDir,FileName,Book,Location,LineNumber,Line"
-    }
-
-    It "まとまりが無ければ空" {
-        (expandExportPart @{ Runs = @(); Order = [int[]]@() }).Count | Should -Be 0
-        (expandExportPart @{ Runs = @(); Order = $null }).Count | Should -Be 0
-    }
-}

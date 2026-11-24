@@ -126,28 +126,12 @@ function testGroupShown {
     return ($script:filterText -eq "" -or (testHitFilter $group.Book $script:filterText))
 }
 
-function newSingleHitRun {
-    # 1 件ずつの形のヒット（PSCustomObject。Root; RelPath; RelDir; FileName; Book; Location; LineNumber; Line）を、1 行のまとまりにする（pumpSearch）
-    param (
-        $hit
-    )
-
-    $numbers = New-Object 'System.Collections.Generic.List[int]'
-    $numbers.Add([int]$hit.LineNumber)
-    $lines = New-Object 'System.Collections.Generic.List[string]'
-    $lines.Add($hit.Line)
-    return @{
-        Root = $hit.Root; RelPath = $hit.RelPath; RelDir = $hit.RelDir; FileName = $hit.FileName
-        Book = $hit.Book; Location = $hit.Location; LineNumbers = $numbers; Lines = $lines
-    }
-}
-
 function ensureRows {
     # ファイルのヒットのうち、まだ表の行（HitRow）にしていないものを、先頭から target 件目まで行にする（既定は全部。
     # 絞り込みに合うものは ShownRows にも入れる）。行を作るのは重い（1 万行で 1 秒を超える）ので、画面に出す分だけを渡す。
     # 並べ替えていないときは、まとまりを RowRun から順にたどる。まとまりの中の位置は、作った行の数 - RunStarts[RowRun] で毎回求め、
     # RowRun は次の行が先のまとまりにあるときだけ進める（検索中に最後のまとまりへ行が足されても、抜かさず、範囲の外も読まない）。
-    # 並べ替えているとき（HitOrder）は、その番号のヒットを getGroupHit で読む。
+    # 並べ替えているとき（HitOrder）は、その番号のヒットを getGroupHit で読む（多くの行を作るときは、番号 → まとまりと位置の表 getHitRunIndex を 1 回作る）。
     # 行ごとに通る処理なので、行を作る処理は関数に分けずにここに書く（並べ替えで全件の行を作るときに遅くならないため）
     param (
         [FileGroup]$group,
@@ -161,13 +145,23 @@ function ensureRows {
         # 行を作り直すとき（並べ替えで Rows を空にしたなど）は先頭から
         $group.RowRun = 0
     }
+    $table = $null
+    if ($null -ne $order -and ($end - $group.Rows.Count) -gt ${groupRowLimit}) {
+        # 全件の行を作るとき（コピーなど）に、行ごとに探さない
+        $table = getHitRunIndex $group.Runs
+    }
     for ($i = $group.Rows.Count; $i -lt $end; $i++) {
         $hitIndex = $i
         if ($null -ne $order) {
             if ($i -lt $order.Length) { $hitIndex = $order[$i] }
-            $found = getGroupHit $group.Runs $group.RunStarts $hitIndex
-            $run = $found.Run
-            $offset = $found.Offset
+            if ($null -ne $table) {
+                $run = $group.Runs[$table.RunOf[$hitIndex]]
+                $offset = $table.OffsetOf[$hitIndex]
+            } else {
+                $found = getGroupHit $group.Runs $group.RunStarts $hitIndex
+                $run = $found.Run
+                $offset = $found.Offset
+            }
         } else {
             $run = $group.Runs[$group.RowRun]
             $offset = $i - $group.RunStarts[$group.RowRun]
@@ -570,7 +564,7 @@ function getViewRows {
 
 function getExportHits {
     # 結果をファイルに出力するときの、表に出ている分。ファイルごとに、まとまりのまま @{ Runs; Order } を並べて返す
-    # （1 件ずつの値に広げるのは、書き出す司令のスレッド。search_export.ps1 の expandExportPart。画面のスレッドでは作らない）。
+    # （1 件ずつの値に広げるのは、書き出す司令のスレッド。search_export.ps1 の writeSearchExportShown が expandHitRuns で。画面のスレッドでは作らない）。
     #   並べ替えていて上限を超えていない: 表の順（ファイルの順 → ファイルの中は Order の番号の順。getExportHitOrder）。行の部品（HitRow）は新しく作らない
     #   それ以外: 検索の順（ファイルの見つかった順 → ファイルの中の見つかった順。Order は $null）。
     #            上限を超えているときは溢れの続きとして書くので並べ替えは当てない。絞り込みはファイル名で、ファイルごとに決まる

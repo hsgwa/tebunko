@@ -128,31 +128,51 @@ function pumpSearch {
     }
     $shared = $s.Shared
     $item = $null
+    # この回に最後に足したまとまりと、その見出し（続けて同じ場所のヒットが届くことが多いので、見出しを引かずに足す）
+    $last = $null
+    $lastGroup = $null
     # 1 回に移す量は件数ではなく時間で区切る（件数で区切ると、ヒットが多いときに画面が 0.5 秒以上止まる）
     $elapsed = [System.Diagnostics.Stopwatch]::StartNew()
     while ($elapsed.ElapsedMilliseconds -lt ${searchPumpMilliseconds} -and $shared.Queue.TryDequeue([ref]$item)) {
         # ヒットは元のファイルの見出しに、場所ごとのまとまり（Runs）のまま貯めるだけにする。表の行（HitRow）は開いたときなどに作り（ensureRows）、
         # 表への反映は、この 1 回の最後に flushResults でまとめて行う。ヒットごとに通る処理なので、
         # 関数は初めてのファイル・場所のときだけ呼ぶ（呼ぶと、そのぶん結果を表に移すのが遅くなる）
+        $single = $item -isnot [hashtable]
+        if ($single -and $null -ne $last -and $item.Location -ceq $last.Location -and $item.RelPath -ceq $last.RelPath -and $item.Root -ceq $last.Root) {
+            # 直前と同じ本文インデックスのファイル・同じ場所の 1 件は、そのまとまりに足すだけ（見出し・場所の表記は直前と同じ）
+            $last.LineNumbers.Add([int]$item.LineNumber)
+            $last.Lines.Add($item.Line)
+            $lastGroup.HitCount++
+            $script:hitCount++
+            continue
+        }
         $relDir = [string]$item.RelDir
         $fileKey = "$($item.Root)\$relDir\$($item.Book)"
         $group = $null
         if (!$script:fileGroups.TryGetValue($fileKey, [ref]$group)) {
             $group = newFileGroup $fileKey $relDir $item.Book
         }
-        $last = $(if ($group.Runs.Count -gt 0) { $group.Runs[$group.Runs.Count - 1] } else { $null })
-        if ($null -eq $item.LineNumbers -and $null -ne $last -and [string]$last.Location -ceq [string]$item.Location) {
-            # 1 件ずつの形が、直前のまとまり（見出しの Runs の最後）と同じ場所なら、そのまとまりに足す（まとまりを増やさない）
-            $last.LineNumbers.Add([int]$item.LineNumber)
-            $last.Lines.Add($item.Line)
+        $tail = $(if ($group.Runs.Count -gt 0) { $group.Runs[$group.Runs.Count - 1] } else { $null })
+        if ($single -and $null -ne $tail -and [string]$tail.Location -ceq [string]$item.Location -and [string]$tail.RelPath -ceq [string]$item.RelPath) {
+            # 見出しの Runs の最後のまとまりと同じ本文インデックスのファイル・同じ場所なら、そこに足す（分けたファイルの塊はまたがない）
+            $tail.LineNumbers.Add([int]$item.LineNumber)
+            $tail.Lines.Add($item.Line)
             $rowCount = 1
         } else {
-            # まとまりはそのまま、1 件ずつの形は 1 行のまとまりにして足す
-            $run = $(if ($null -ne $item.LineNumbers) { $item } else { newSingleHitRun $item })
-            $rowCount = $run.Lines.Count
+            # まとまりはそのまま、1 件ずつの形は 1 行のまとまりにして足す（場所ごとに通るので、関数を呼ばずにここで作る）
+            $tail = $item
+            if ($single) {
+                $tail = @{ Root = $item.Root; RelPath = $item.RelPath; RelDir = $item.RelDir; FileName = $item.FileName; Book = $item.Book; Location = $item.Location
+                    LineNumbers = [System.Collections.Generic.List[int]]::new(); Lines = [System.Collections.Generic.List[string]]::new() }
+                $tail.LineNumbers.Add([int]$item.LineNumber)
+                $tail.Lines.Add($item.Line)
+            }
+            $rowCount = $tail.Lines.Count
             $group.RunStarts.Add($group.HitCount)
-            $group.Runs.Add($run)
+            $group.Runs.Add($tail)
         }
+        $last = $tail
+        $lastGroup = $group
         $group.HitCount += $rowCount
         if ($group.AddLocation($item.Location)) {
             addFileGroupLocation $group $item.Book $item.Location
@@ -166,7 +186,24 @@ function pumpSearch {
         markTrace "search" "画面: 最初の行"
         markTrace "startup" "10 表に最初の行が出る"
     }
+    showSearchProgress $s
+    if (!$shared.Finished -and !$script:searchService.IsRunning()) {
+        # 司令のスレッドが止まった（lib.ps1 を読み込めなかった等）。次の検索で作り直す
+        $shared.Error = $script:searchService.GetFailure()
+        $shared.Finished = $true
+    }
+    if ($shared.Finished -and $shared.Queue.IsEmpty) {
+        finishSearch
+    }
+}
 
+function showSearchProgress {
+    # 検索の進み具合（進み具合の棒・タスクバー・件数の文言）を表示する（pumpSearch の 1 回ごと）
+    param (
+        $s
+    )
+
+    $shared = $s.Shared
     if ($shared.Total -gt 0) {
         $ratio = $shared.Done / $shared.Total
         $ui.SearchProgress.IsIndeterminate = $false
@@ -188,15 +225,6 @@ function pumpSearch {
         } else {
             "検索対象のファイルを確認しています…"
         }
-    }
-
-    if (!$shared.Finished -and !$script:searchService.IsRunning()) {
-        # 司令のスレッドが止まった（lib.ps1 を読み込めなかった等）。次の検索で作り直す
-        $shared.Error = $script:searchService.GetFailure()
-        $shared.Finished = $true
-    }
-    if ($shared.Finished -and $shared.Queue.IsEmpty) {
-        finishSearch
     }
 }
 
