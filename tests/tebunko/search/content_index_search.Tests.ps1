@@ -1289,6 +1289,16 @@ Describe "expandHitRuns・getHitRunCount（場所ごとのまとまり → 1 件
         getHitRunCount @() | Should -Be 0
     }
 
+    It "getHitRunIndex: ヒットの番号 → まとまりの番号・まとまりの中の位置の表（境目・1 行のまとまり・空）" {
+        $runs = @((newTestRun "4月" @(3, 9) @("x", "y")), (newTestRun "5月" @(1) @("z")), (newTestRun "6月" @(2, 4, 8) @("p", "q", "r")))
+
+        $table = getHitRunIndex $runs
+
+        ($table.RunOf -join ",") | Should -Be "0,0,1,2,2,2"
+        ($table.OffsetOf -join ",") | Should -Be "0,1,0,0,1,2"
+        (getHitRunIndex @()).RunOf.Length | Should -Be 0
+    }
+
     It "書く順の番号（order）があれば、その順（<Name>）" -ForEach @(
         @{ Name = "まとまりの境目をまたぐ"; Order = @(5, 2, 0, 3, 1, 4); Expected = "6月:8:r,5月:1:z,4月:3:x,6月:2:p,4月:9:y,6月:4:q" }
         @{ Name = "見つかった順と同じ番号"; Order = @(0, 1, 2, 3, 4, 5); Expected = "4月:3:x,4月:9:y,5月:1:z,6月:2:p,6月:4:q,6月:8:r" }
