@@ -534,35 +534,27 @@ Describe "getNextSortDirection・testSortStateActive" -Tag Unit {
     }
 }
 
-Describe "getOrderedHits" -Tag Unit {
-    BeforeAll {
-        # a・b は同じ場所（1 つのまとまり）、c は別の場所
-        $hits = @("a", "b") | ForEach-Object { [pscustomobject]@{ Location = "シート"; LineNumber = 1; Line = $_ } }
-        $hits += [pscustomobject]@{ Location = "別"; LineNumber = 1; Line = "c" }
-        $script:orderedRuns = newTestRuns $hits
-    }
-
+Describe "getExportHitOrder" -Tag Unit {
     It "<name>" -ForEach @(
-        @{ name = "hitOrder があれば、その順"; order = @(2, 0, 1); rows = $null; expected = "c,a,b" }
-        @{ name = "hitOrder が無く行が全部あれば、行の Order の順"; order = $null; rows = @(1, 2, 0); expected = "b,c,a" }
-        @{ name = "行が足りなければ、見つかった順"; order = $null; rows = @(1); expected = "a,b,c" }
-        @{ name = "hitOrder も行も無ければ、見つかった順"; order = $null; rows = $null; expected = "a,b,c" }
-        @{ name = "hitOrder の長さがヒットの数と違えば、使わない"; order = @(2); rows = $null; expected = "a,b,c" }
+        @{ name = "hitOrder があれば、その順"; order = @(2, 0, 1); rows = $null; expected = "2,0,1" }
+        @{ name = "hitOrder が無く行が全部あれば、行の Order の順"; order = $null; rows = @(1, 2, 0); expected = "1,2,0" }
+        @{ name = "行が足りなければ、見つかった順（null）"; order = $null; rows = @(1); expected = "-" }
+        @{ name = "hitOrder も行も無ければ、見つかった順（null）"; order = $null; rows = $null; expected = "-" }
+        @{ name = "hitOrder の長さがヒットの数と違えば、使わない（null）"; order = @(2); rows = $null; expected = "-" }
     ) {
         $rowItems = if ($null -eq $rows) { $null } else { @($rows | ForEach-Object { [pscustomobject]@{ Order = $_ } }) }
 
-        (getOrderedHits $script:orderedRuns.Runs $script:orderedRuns.Starts $order $rowItems | ForEach-Object { $_.Line }) -join "," | Should -Be $expected
+        $result = getExportHitOrder 3 $order $rowItems
+
+        $(if ($null -eq $result) { "-" } else { $result -join "," }) | Should -Be $expected
+        if ($null -ne $result) { , $result | Should -BeOfType [int[]] }
     }
 
-    It "ヒットが 0 件なら空" {
-        (getOrderedHits @() @() $null @()).Count | Should -Be 0
+    It "ヒットが 0 件なら見つかった順（null）" {
+        $null -eq (getExportHitOrder 0 $null @()) | Should -BeTrue
     }
 
-    It "1 件ずつの値は、まとまりの項目と、その行の行番号・該当行を持つ" {
-        $run = @{ Root = "C:\idx"; RelPath = "営業\a.xlsx\4月.tsv"; RelDir = "営業"; FileName = "4月.tsv"; Book = "a.xlsx"; Location = "4月"
-            LineNumbers = [System.Collections.Generic.List[int]]@(3, 9); Lines = [System.Collections.Generic.List[string]]@("x", "y") }
-        $item = (getOrderedHits @($run) @(0) @(1, 0) $null)[0]
-        "$($item.Root)|$($item.RelPath)|$($item.RelDir)|$($item.FileName)|$($item.Book)|$($item.Location)|$($item.LineNumber)|$($item.Line)" |
-            Should -Be "C:\idx|営業\a.xlsx\4月.tsv|営業|4月.tsv|a.xlsx|4月|9|y"
+    It "番号が 1 つだけでも配列のまま返す" {
+        , (getExportHitOrder 1 $null @([pscustomobject]@{ Order = 0 })) | Should -BeOfType [int[]]
     }
 }

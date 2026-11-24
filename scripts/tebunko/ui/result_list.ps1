@@ -126,39 +126,6 @@ function testGroupShown {
     return ($script:filterText -eq "" -or (testHitFilter $group.Book $script:filterText))
 }
 
-function addHitRow {
-    # ヒット 1 件の表の行（HitRow）を作って、見出しの Rows（と、絞り込みに合うなら ShownRows）に足す。
-    #   source: Root・RelPath・RelDir・FileName・Book・Location を持つもの（まとまり、または 1 件ずつの値）/ order: 行の Order（見つかった順の番号）
-    param (
-        [FileGroup]$group,
-        $source,
-        [int]$lineNumber,
-        [string]$line,
-        [int]$order,
-        [bool]$shown
-    )
-
-    # インデックスのフォルダ（work\index）からの相対パスの先頭がインデックス名（splitIndexRelPath と同じ）
-    $relDir = [string]$source.RelDir
-    $cut = $relDir.IndexOf("\")
-    $indexName = if ($cut -lt 0) { $relDir } else { $relDir.Substring(0, $cut) }
-    $row = [HitRow]::Create($indexName, $source.Root, $source.RelPath, $relDir, $source.FileName,
-            $source.Book, $source.Location, $lineNumber, $line, $script:rowWord, $script:rowPattern)
-    $traits = getRowTraits $source.Book $source.Location
-    $described = getPlace $source.Book $source.Location $traits.FileKind
-    $row.PlaceText = $described.Place
-    $row.Kind = $described.Kind
-    $row.IsExcel = ($traits.FileKind -eq "Excel")
-    $row.IsText = $traits.IsText
-    $row.IsCellPrefixed = $traits.IsCellPrefixed
-    $row.Order = $order
-    $row.FileGroup = $group
-    $group.Rows.Add($row)
-    if ($shown) {
-        $group.ShownRows.Add($row)
-    }
-}
-
 function newSingleHitRun {
     # 1 件ずつの形のヒット（PSCustomObject。Root; RelPath; RelDir; FileName; Book; Location; LineNumber; Line）を、1 行のまとまりにする（pumpSearch）
     param (
@@ -180,7 +147,8 @@ function ensureRows {
     # 絞り込みに合うものは ShownRows にも入れる）。行を作るのは重い（1 万行で 1 秒を超える）ので、画面に出す分だけを渡す。
     # 並べ替えていないときは、まとまりを RowRun から順にたどる。まとまりの中の位置は、作った行の数 - RunStarts[RowRun] で毎回求め、
     # RowRun は次の行が先のまとまりにあるときだけ進める（検索中に最後のまとまりへ行が足されても、抜かさず、範囲の外も読まない）。
-    # 並べ替えているとき（HitOrder）は、その番号のヒットを getGroupHit で読む
+    # 並べ替えているとき（HitOrder）は、その番号のヒットを getGroupHit で読む。
+    # 行ごとに通る処理なので、行を作る処理は関数に分けずにここに書く（並べ替えで全件の行を作るときに遅くならないため）
     param (
         [FileGroup]$group,
         [int]$target = -1
@@ -194,20 +162,40 @@ function ensureRows {
         $group.RowRun = 0
     }
     for ($i = $group.Rows.Count; $i -lt $end; $i++) {
+        $hitIndex = $i
         if ($null -ne $order) {
-            $hitIndex = $(if ($i -lt $order.Length) { $order[$i] } else { $i })
+            if ($i -lt $order.Length) { $hitIndex = $order[$i] }
             $found = getGroupHit $group.Runs $group.RunStarts $hitIndex
-            addHitRow $group $found.Run $found.Run.LineNumbers[$found.Offset] $found.Run.Lines[$found.Offset] $hitIndex $shown
-            continue
-        }
-        $run = $group.Runs[$group.RowRun]
-        $offset = $i - $group.RunStarts[$group.RowRun]
-        while ($offset -ge $run.Lines.Count) {
-            $group.RowRun++
+            $run = $found.Run
+            $offset = $found.Offset
+        } else {
             $run = $group.Runs[$group.RowRun]
             $offset = $i - $group.RunStarts[$group.RowRun]
+            while ($offset -ge $run.Lines.Count) {
+                $group.RowRun++
+                $run = $group.Runs[$group.RowRun]
+                $offset = $i - $group.RunStarts[$group.RowRun]
+            }
         }
-        addHitRow $group $run $run.LineNumbers[$offset] $run.Lines[$offset] $i $shown
+        # インデックスのフォルダ（work\index）からの相対パスの先頭がインデックス名（splitIndexRelPath と同じ）
+        $relDir = [string]$run.RelDir
+        $cut = $relDir.IndexOf("\")
+        $indexName = if ($cut -lt 0) { $relDir } else { $relDir.Substring(0, $cut) }
+        $row = [HitRow]::Create($indexName, $run.Root, $run.RelPath, $relDir, $run.FileName,
+                $run.Book, $run.Location, $run.LineNumbers[$offset], $run.Lines[$offset], $script:rowWord, $script:rowPattern)
+        $traits = getRowTraits $run.Book $run.Location
+        $described = getPlace $run.Book $run.Location $traits.FileKind
+        $row.PlaceText = $described.Place
+        $row.Kind = $described.Kind
+        $row.IsExcel = ($traits.FileKind -eq "Excel")
+        $row.IsText = $traits.IsText
+        $row.IsCellPrefixed = $traits.IsCellPrefixed
+        $row.Order = $hitIndex
+        $row.FileGroup = $group
+        $group.Rows.Add($row)
+        if ($shown) {
+            $group.ShownRows.Add($row)
+        }
     }
 }
 
@@ -581,9 +569,10 @@ function getViewRows {
 }
 
 function getExportHits {
-    # 結果をファイルに出力するときの、表に出ている分（RelDir・Book・Location・LineNumber・Line を持つ並び）。
-    #   並べ替えていて上限を超えていない: 表の順（ファイルの順 → ファイルの中は getOrderedHits）。行の部品（HitRow）は新しく作らない
-    #   それ以外: 検索の順（ファイルの見つかった順 → ファイルの中の見つかった順）。行の部品（HitRow）は作らず、ファイルの素の値を並べる。
+    # 結果をファイルに出力するときの、表に出ている分。ファイルごとに、まとまりのまま @{ Runs; Order } を並べて返す
+    # （1 件ずつの値に広げるのは、書き出す司令のスレッド。search_export.ps1 の expandExportPart。画面のスレッドでは作らない）。
+    #   並べ替えていて上限を超えていない: 表の順（ファイルの順 → ファイルの中は Order の番号の順。getExportHitOrder）。行の部品（HitRow）は新しく作らない
+    #   それ以外: 検索の順（ファイルの見つかった順 → ファイルの中の見つかった順。Order は $null）。
     #            上限を超えているときは溢れの続きとして書くので並べ替えは当てない。絞り込みはファイル名で、ファイルごとに決まる
     param (
         [bool]$truncated,
@@ -591,22 +580,20 @@ function getExportHits {
         [bool]$sorted = $false
     )
 
-    if ($sorted -and !$truncated) {
-        $ordered = New-Object 'System.Collections.Generic.List[object]'
-        foreach ($group in $script:groupList) {
-            if (testHitFilter $group.Book $filterText) {
-                $ordered.AddRange((getOrderedHits $group.Runs $group.RunStarts $group.HitOrder $group.Rows))
-            }
-        }
-        return , $ordered.ToArray()
-    }
-    $hits = New-Object 'System.Collections.Generic.List[object]'
-    foreach ($group in ($script:groupList | Sort-Object Order)) {
+    $parts = New-Object 'System.Collections.Generic.List[object]'
+    $byTable = ($sorted -and !$truncated)
+    $groups = $(if ($byTable) { $script:groupList } else { $script:groupList | Sort-Object Order })
+    foreach ($group in $groups) {
         if (testHitFilter $group.Book $filterText) {
-            $hits.AddRange((expandHitRuns $group.Runs))
+            $order = $null
+            if ($byTable) {
+                $order = getExportHitOrder $group.HitCount $group.HitOrder $group.Rows
+            }
+            # 書き出しは司令のスレッドで後から読むので、まとまりの一覧は写しを渡す
+            $parts.Add(@{ Runs = $group.Runs.ToArray(); Order = $order })
         }
     }
-    return , $hits.ToArray()
+    return , $parts.ToArray()
 }
 
 function getSelectedRows {

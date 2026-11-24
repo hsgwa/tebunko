@@ -1,7 +1,7 @@
 ﻿# 検索結果をファイル（.xlsx・.csv・.tsv）に出力する書き手（状態層）。画面のスレッドでは書かず、検索の司令のスレッド（search_service.ps1）が、
 # 書き出しの要求（newExportRequest）を invokeSearchExport で実行する。
 #
-# 書き出す中身: 表に出ている分（要求の ShownHits。画面が表の順に渡す）→ 件数の上限を超えて表に入らなかった分（溢れ。search_overflow.ps1）の順。
+# 書き出す中身: 表に出ている分（要求の ShownHits。画面が表の順に渡す。ファイルごとのまとまりは、ここで 1 件ずつに広げる。expandExportPart）→ 件数の上限を超えて表に入らなかった分（溢れ。search_overflow.ps1）の順。
 #   溢れを含めるのは、元の検索が上限を超えていて（Truncated）、総数の時間切れ・溢れの書き損じ・検索の中止のどれでもないときだけ。
 #   それ以外は表の分だけ（「先頭だけ」）。溢れの行は元の検索の順のまま、絞り込み（FilterText）に合うものだけを書く。
 # 1 件ずつ列（toResultCells。形式ごとに決まる）にして書き手に渡す。全部をメモリに読まない（溢れは 1 ファイルずつ、区切りが LF だけの行を順に読む）。
@@ -21,7 +21,8 @@ ${searchExportXlsxHeaders} = @("ファイル名", "場所", "種別", "行", "�
 
 function newExportRequest {
     # 書き出しの要求を作る（画面が作り、SearchService.Export で渡す）。検索の要求と同じく Synchronized の hashtable。
-    #   画面が書く: Source（出力する元の検索の要求）・OutputPath（出力先）・ShownHits（表に出ている分の素の値。RelDir・Book・Location・LineNumber・Line）・
+    #   画面が書く: Source（出力する元の検索の要求）・OutputPath（出力先）・ShownHits（表に出ている分を表の順に。1 件ずつの素の値〈RelDir・Book・Location・LineNumber・Line〉か、
+    #              ファイルごとのまとまり @{ Runs〈場所ごとのまとまりの一覧〉; Order〈書く順の番号。$null は見つかった順〉}。getExportHits）・
     #              FilterText（絞り込み）・Word（検索ワード。状態の文言用）・Format（xlsx / csv / tsv）・
     #              TmpRoot（出力先の置き場 open_copy を持つ作業フォルダの tmp。空でなければ、置き場がリンクでないことを書く前に確かめる）・Stop（中止）
     #   司令が書く: Written（書いた件数。途中も増える）・Outcome（Done / Cancelled / Locked / Denied / Failed）・Scope（All / Overflow / HeadOnly）・
@@ -175,18 +176,56 @@ function stepSearchExport {
     return $false
 }
 
+function expandExportPart {
+    # 表に出ている分のうち、ファイルごとのまとまり @{ Runs; Order }（getExportHits）を、書く順の 1 件ずつの値（expandHitRuns と同じ項目）にする。
+    # Order があれば、番号 → まとまりと位置の表を 1 回作ってから、その順に並べる（番号ごとに探さない）
+    param (
+        [hashtable]$part
+    )
+
+    $runs = $part.Runs
+    if ($null -eq $part.Order) {
+        return , (expandHitRuns $runs)
+    }
+    $count = 0
+    foreach ($run in $runs) { $count += $run.Lines.Count }
+    $runOf = New-Object 'int[]' $count
+    $offsetOf = New-Object 'int[]' $count
+    $index = 0
+    for ($r = 0; $r -lt $runs.Count; $r++) {
+        for ($i = 0; $i -lt $runs[$r].Lines.Count; $i++) {
+            $runOf[$index] = $r
+            $offsetOf[$index] = $i
+            $index++
+        }
+    }
+    $hits = New-Object 'System.Collections.Generic.List[object]' $count
+    foreach ($number in $part.Order) {
+        $run = $runs[$runOf[$number]]
+        $i = $offsetOf[$number]
+        $hits.Add([pscustomobject]@{
+            Root = $run.Root; RelPath = $run.RelPath; RelDir = $run.RelDir; FileName = $run.FileName
+            Book = $run.Book; Location = $run.Location; LineNumber = $run.LineNumbers[$i]; Line = $run.Lines[$i]
+        })
+    }
+    return , $hits.ToArray()
+}
+
 function writeSearchExportShown {
-    # 表に出ている分を書く。中止されたら $false
+    # 表に出ている分を書く（ファイルごとのまとまりは、ここで 1 件ずつに広げる）。中止されたら $false
     param (
         [hashtable]$request,
         [hashtable]$state
     )
 
-    foreach ($hit in $request.ShownHits) {
-        if (stepSearchExport $request $state) {
-            return $false
+    foreach ($item in $request.ShownHits) {
+        $hits = $(if ($item -is [hashtable] -and $null -ne $item.Runs) { expandExportPart $item } else { , $item })
+        foreach ($hit in $hits) {
+            if (stepSearchExport $request $state) {
+                return $false
+            }
+            addSearchExportRow $state (toResultCells $hit.RelDir $hit.Book $hit.Location ([int]$hit.LineNumber) $hit.Line $state.Format)
         }
-        addSearchExportRow $state (toResultCells $hit.RelDir $hit.Book $hit.Location ([int]$hit.LineNumber) $hit.Line $state.Format)
     }
     return $true
 }

@@ -123,6 +123,14 @@ BeforeAll {
         })
     }
 
+    function expandExportHits {
+        # getExportHits の戻り値（ファイルごとの @{ Runs; Order }）を、書き出す司令のスレッドと同じく 1 件ずつの値にする（expandExportPart）
+        param ($parts)
+        $hits = New-Object 'System.Collections.Generic.List[object]'
+        foreach ($part in $parts) { $hits.AddRange([object[]](expandExportPart $part)) }
+        return , $hits.ToArray()
+    }
+
     function newSortColumn([string]$path) {
         $column = New-Object System.Windows.Controls.DataGridTextColumn
         $column.SortMemberPath = $path
@@ -1169,16 +1177,30 @@ Describe "getExportHits" -Tag Unit {
         @{ Name = "上限を超えている: ファイル名の絞り込み（大文字・小文字を区別しない）"; Truncated = $true; Filter = "DOCX"; Expected = "1,2,3" }
         @{ Name = "上限を超えている: 合うファイルが無い"; Truncated = $true; Filter = "存在しない"; Expected = "" }
     ) {
-        $hits = getExportHits $Truncated $Filter ([bool]$Sorted)
+        $hits = expandExportHits (getExportHits $Truncated $Filter ([bool]$Sorted))
 
         (@($hits | ForEach-Object { $_.LineNumber }) -join ",") | Should -Be $Expected
     }
 
     It "上限を超えているときは、行の部品（HitRow）を作らず、検索の素の値を返す" {
-        $hits = getExportHits $true ""
+        $hits = expandExportHits (getExportHits $true "")
 
         $hits[0].GetType().Name | Should -Not -Be "HitRow"
         $hits[0].Book | Should -Be "b.docx"
+    }
+
+    It "画面のスレッドでは 1 件ずつの値を作らず、ファイルごとのまとまりと、書く順の番号（並べ替えているときだけ）を返す（<Name>）" -ForEach @(
+        @{ Name = "並べ替えている"; Sorted = $true; Orders = "0|0,1|0" }
+        @{ Name = "並べ替えていない"; Sorted = $false; Orders = "-|-|-" }
+    ) {
+        $parts = getExportHits $false "" $Sorted
+
+        $parts.Count | Should -Be 3
+        foreach ($part in $parts) {
+            $part | Should -BeOfType [hashtable]
+            , $part.Runs | Should -BeOfType [object[]]
+        }
+        (@($parts | ForEach-Object { if ($null -eq $_.Order) { "-" } else { $_.Order -join "," } }) -join "|") | Should -Be $Orders
     }
 }
 
@@ -1370,7 +1392,7 @@ Describe "getExportHits（並べ替え・上限内は、行を作らず表の順
         $script:filterText = $Filter
         applySort $Property $Desc
 
-        $hits = getExportHits $false $Filter $true
+        $hits = expandExportHits (getExportHits $false $Filter $true)
         $old = getViewRows
 
         $hits.Count | Should -Be $old.Count
@@ -1391,7 +1413,7 @@ Describe "getExportHits（並べ替え・上限内は、行を作らず表の順
         applySort "Location" $false
         $before = @($script:groupList | ForEach-Object { $_.Rows.Count })
 
-        $hits = getExportHits $false "" $true
+        $hits = expandExportHits (getExportHits $false "" $true)
 
         @($script:groupList | ForEach-Object { $_.Rows.Count }) -join "," | Should -Be ($before -join ",")
         $hits.Count | Should -Be 2502
@@ -1406,7 +1428,7 @@ Describe "getExportHits（並べ替え・上限内は、行を作らず表の順
         $ui.ResultGrid.Columns.Add($column)
         applySort "Location" $false
 
-        @(getExportHits $false "" $true).Count | Should -Be 1
+        @(expandExportHits (getExportHits $false "" $true)).Count | Should -Be 1
     }
 
     It "RelDir・Line が `$null の素のヒットでも、行の経路と同じく空として出る" {
@@ -1418,7 +1440,7 @@ Describe "getExportHits（並べ替え・上限内は、行を作らず表の順
         $ui.ResultGrid.Columns.Add($column)
         applySort "Location" $false
 
-        $hit = @(getExportHits $false "" $true)[0]
+        $hit = @(expandExportHits (getExportHits $false "" $true))[0]
         $row = (getViewRows)[0]
 
         "$($hit.RelDir)" | Should -Be $row.RelDir

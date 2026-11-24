@@ -298,47 +298,31 @@ function getSortedHitOrder {
     return $null
 }
 
-function getOrderedHits {
-    # ファイルのヒット（場所ごとのまとまりの一覧 runs と、その先頭の番号 runStarts）を、表の順に 1 件ずつの値
-    # （Root; RelPath; RelDir; FileName; Book; Location; LineNumber; Line）にして返す（結果の出力に使う。行の部品 HitRow を新しく作らない）。
-    #   hitOrder があれば、その順（getSortedHitOrder。ヒットが多いファイル）
+function getExportHitOrder {
+    # 結果の出力で、ファイルのヒットを書く順（見つかった順の番号の並び）。$null は見つかった順のまま（1 件ずつの値は作らない。
+    # 番号から 1 件ずつに広げるのは、書き出す司令のスレッド。search_export.ps1 の expandExportPart）。
+    #   hitOrder の長さがヒットの数と同じなら、その順（getSortedHitOrder。ヒットが多いファイル）
     #   無く、行が全部作ってあれば（rows の数 = ヒットの数）、行の Order（見つかった順の番号）の順 = 並べ替えた表の順
-    #   それ以外（行が足りない・並べ替えない列）は、見つかった順
+    #   それ以外（行が足りない・並べ替えない列）は $null
     param (
-        $runs,
-        $runStarts,
+        [int]$hitCount,
         $hitOrder,
         $rows
     )
 
-    $count = 0
-    foreach ($run in $runs) { $count += $run.Lines.Count }
-    $indexes = $null
-    if ($null -ne $hitOrder -and $hitOrder.Length -eq $count) {
-        $indexes = $hitOrder
-    } elseif ($null -ne $rows -and $rows.Count -eq $count -and $count -gt 0) {
-        $indexes = New-Object 'int[]' $count
-        $k = 0
-        foreach ($row in $rows) {
-            $indexes[$k] = $row.Order
-            $k++
-        }
-    } else {
-        $indexes = 0..($count - 1)
+    if ($null -ne $hitOrder -and $hitOrder.Length -eq $hitCount) {
+        return , ([int[]]$hitOrder)
     }
-    $result = New-Object 'System.Collections.Generic.List[object]' $count
-    if ($count -eq 0) {
-        return , $result
+    if ($null -eq $rows -or $rows.Count -ne $hitCount -or $hitCount -eq 0) {
+        return $null
     }
-    foreach ($index in $indexes) {
-        $found = getGroupHit $runs $runStarts $index
-        $run = $found.Run
-        $result.Add([pscustomobject]@{
-            Root = $run.Root; RelPath = $run.RelPath; RelDir = $run.RelDir; FileName = $run.FileName
-            Book = $run.Book; Location = $run.Location; LineNumber = $run.LineNumbers[$found.Offset]; Line = $run.Lines[$found.Offset]
-        })
+    $order = New-Object 'int[]' $hitCount
+    $k = 0
+    foreach ($row in $rows) {
+        $order[$k] = $row.Order
+        $k++
     }
-    return , $result
+    return , $order
 }
 
 function getHitOrderByLine {
