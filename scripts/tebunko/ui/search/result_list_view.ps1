@@ -251,70 +251,98 @@ function getSortRowTarget {
     return $(if ($hitCount -gt $limit) { 1 } else { $hitCount })
 }
 
+function getGroupHit {
+    # 見出しのヒットの番号（見つかった順の 0 始まり）→ そのヒットのまとまりと、まとまりの中の位置（@{ Run; Offset }）。
+    # runStarts（まとまりごとの先頭の番号。昇順）を二分探索する。1 件ずつの値（PSCustomObject）は作らない。範囲の外は $null
+    param (
+        $runs,
+        $runStarts,
+        [int]$index
+    )
+
+    if ($index -lt 0 -or $runs.Count -eq 0) {
+        return $null
+    }
+    $low = 0
+    $high = $runs.Count - 1
+    while ($low -lt $high) {
+        $middle = ($low + $high + 1) -shr 1
+        if ($runStarts[$middle] -le $index) { $low = $middle } else { $high = $middle - 1 }
+    }
+    $offset = $index - $runStarts[$low]
+    if ($offset -ge $runs[$low].Lines.Count) {
+        return $null
+    }
+    return @{ Run = $runs[$low]; Offset = $offset }
+}
+
 function getSortedHitOrder {
-    # 生のヒットを property（Location・Kind・LineNumber・Line）の順に並べ替えた、ヒットの番号（見つかった順の 0 始まり）の並びを返す。
-    # 同じ値のときは見つかった順。行を作らずに並べ替えるので、ヒットが何万件あっても速い（10 万件で 1 秒ほど）。
+    # ヒット（場所ごとのまとまりの一覧 runs）を property（Location・Kind・LineNumber・Line）の順に並べ替えた、ヒットの番号（見つかった順の 0 始まり）の並びを返す。
+    # 同じ値のときは見つかった順。行を作らず、比べる値をまとまりから 1 本の並びに写してから並べ替えるので、ヒットが何万件あっても速い（10 万件で 1 秒ほど）。
     # 文字は Sort-Object と同じ（現在のカルチャーで大文字・小文字を区別しない）。「場所」は同じ場所の中を行番号の順にする。
     # 「種別」（Kind）は場所から決まるので、場所ごとの種別を kindByLocation（場所 → 種別）で渡す。
     # property が上のどれでもなければ $null（並べ替えない）
     param (
-        $hits,
+        $runs,
         [string]$property,
         [bool]$descending,
         $kindByLocation = @{}
     )
 
     if ($property -eq "Line") {
-        return , (getHitOrderByLine $hits $descending)
+        return , (getHitOrderByLine $runs $descending)
     }
     if ($property -eq "Location" -or $property -eq "Kind" -or $property -eq "LineNumber") {
-        return , (getHitOrderByNumber $hits $property $descending $kindByLocation)
+        return , (getHitOrderByNumber $runs $property $descending $kindByLocation)
     }
     return $null
 }
 
-function getOrderedHits {
-    # ファイルの素のヒットを、表の順に並べて返す（結果の出力に使う。行の部品 HitRow を新しく作らない）。
-    #   hitOrder があれば、その順（getSortedHitOrder。ヒットが多いファイル）
+function getExportHitOrder {
+    # 結果の出力で、ファイルのヒットを書く順（見つかった順の番号の並び）。$null は見つかった順のまま（1 件ずつの値は作らない。
+    # 番号から 1 件ずつに広げるのは、書き出す司令のスレッド。search_export.ps1 の writeSearchExportShown が expandHitRuns で）。
+    #   hitOrder の長さがヒットの数と同じなら、その順（getSortedHitOrder。ヒットが多いファイル）
     #   無く、行が全部作ってあれば（rows の数 = ヒットの数）、行の Order（見つかった順の番号）の順 = 並べ替えた表の順
-    #   それ以外（行が足りない・並べ替えない列）は、見つかった順
+    #   それ以外（行が足りない・並べ替えない列）は $null
     param (
-        $hits,
+        [int]$hitCount,
         $hitOrder,
         $rows
     )
 
-    $result = New-Object 'System.Collections.Generic.List[object]' $hits.Count
-    if ($null -ne $hitOrder -and $hitOrder.Length -eq $hits.Count) {
-        foreach ($index in $hitOrder) {
-            $result.Add($hits[$index])
-        }
-    } elseif ($null -ne $rows -and $rows.Count -eq $hits.Count -and $hits.Count -gt 0) {
-        foreach ($row in $rows) {
-            $result.Add($hits[$row.Order])
-        }
-    } else {
-        $result.AddRange([object[]]@($hits))
+    if ($null -ne $hitOrder -and $hitOrder.Length -eq $hitCount) {
+        return , ([int[]]$hitOrder)
     }
-    return , $result
+    if ($null -eq $rows -or $rows.Count -ne $hitCount -or $hitCount -eq 0) {
+        return $null
+    }
+    $order = New-Object 'int[]' $hitCount
+    $k = 0
+    foreach ($row in $rows) {
+        $order[$k] = $row.Order
+        $k++
+    }
+    return , $order
 }
 
 function getHitOrderByLine {
     # 該当行（Line）の順（getSortedHitOrder）
     param (
-        $hits,
+        $runs,
         [bool]$descending
     )
 
-    $n = $hits.Count
+    $n = 0
+    foreach ($run in $runs) { $n += $run.Lines.Count }
     $keys = New-Object 'string[]' $n
     $items = New-Object 'int[]' $n
     $i = 0
-    foreach ($hit in $hits) {
-        $line = $hit.Line
-        $keys[$i] = $(if ($null -eq $line) { "" } else { [string]$line })
-        $items[$i] = $i
-        $i++
+    foreach ($run in $runs) {
+        foreach ($line in $run.Lines) {
+            $keys[$i] = $(if ($null -eq $line) { "" } else { [string]$line })
+            $items[$i] = $i
+            $i++
+        }
     }
     $comparer = [System.StringComparer]::CurrentCultureIgnoreCase
     [Array]::Sort($keys, $items, $comparer)
@@ -339,60 +367,78 @@ function getHitOrderByLine {
 function getHitOrderByNumber {
     # 場所（Location。同じ場所の中は行番号の順）・種別（Kind。同じ種別の中は見つかった順）・行番号（LineNumber）の順（getSortedHitOrder）。
     # 数だけの鍵にして並べ替える: （文字の順位 × (最大の行番号 + 1) + 行番号）× 件数 + 見つかった順。
-    # ヒットの値は 1 回だけ読む（PowerShell のオブジェクトの項目の読み出しが、並べ替えの時間の大半を占めるため）
+    # 場所はまとまりごとに 1 回だけ読む（PowerShell のオブジェクトの項目の読み出しが、並べ替えの時間の大半を占めるため）
     param (
-        $hits,
+        $runs,
         [string]$property,
         [bool]$descending,
         $kindByLocation
     )
 
-    $n = $hits.Count
-    $byLocation = ($property -eq "Location")
+    $n = 0
+    foreach ($run in $runs) { $n += $run.Lines.Count }
     $byText = ($property -ne "LineNumber")
     $ranks = @{}
     $locations = New-Object 'System.Collections.Generic.List[string]'
     $locationOf = New-Object 'string[]' $n
     $lineOf = New-Object 'long[]' $n
-    [long]$maxLine = 0
     $i = 0
-    foreach ($hit in $hits) {
-        if ($byLocation -or !$byText) {
-            [long]$number = $hit.LineNumber
-            $lineOf[$i] = $number
-            if ($number -gt $maxLine) { $maxLine = $number }
-        }
+    foreach ($run in $runs) {
+        $text = $null
         if ($byText) {
-            $location = [string]$hit.Location
-            $text = $(if ($byLocation) { $location } else { [string]$kindByLocation[$location] })
-            $locationOf[$i] = $text
+            $location = [string]$run.Location
+            $text = $(if ($property -eq "Location") { $location } else { [string]$kindByLocation[$location] })
             if (!$ranks.ContainsKey($text)) {
                 $ranks[$text] = 0
                 $locations.Add($text)
             }
         }
-        $i++
+        foreach ($number in $run.LineNumbers) {
+            $locationOf[$i] = $text
+            $lineOf[$i] = $number
+            $i++
+        }
     }
-    $sortedLocations = @($locations | Sort-Object)
-    for ($r = 0; $r -lt $sortedLocations.Count; $r++) {
-        $ranks[$sortedLocations[$r]] = $r
+    return , (sortHitOrderKeys $locationOf $lineOf $locations $ranks ($property -ne "Kind") $descending)
+}
+
+function sortHitOrderKeys {
+    # getHitOrderByNumber の鍵を作って並べ替え、ヒットの番号の並びを返す。texts: ヒットごとの場所・種別（$null なら比べない）/
+    # lines: ヒットごとの行番号 / useLine: 行番号でも比べるか（種別のときは比べない）
+    param (
+        [string[]]$texts,
+        [long[]]$lines,
+        $names,
+        $ranks,
+        [bool]$useLine,
+        [bool]$descending
+    )
+
+    $n = $lines.Length
+    [long]$maxLine = 0
+    if ($useLine) {
+        foreach ($number in $lines) { if ($number -gt $maxLine) { $maxLine = $number } }
+    }
+    $sortedNames = @($names | Sort-Object)
+    for ($r = 0; $r -lt $sortedNames.Count; $r++) {
+        $ranks[$sortedNames[$r]] = $r
     }
     [long]$span = $maxLine + 1
     $keys = New-Object 'long[]' $n
     $items = New-Object 'int[]' $n
     for ($i = 0; $i -lt $n; $i++) {
         [long]$rank = 0
-        if ($byText) {
-            $rank = $ranks[$locationOf[$i]]
-            if ($descending) { $rank = $sortedLocations.Count - 1 - $rank }
+        if ($null -ne $texts[$i]) {
+            $rank = $ranks[$texts[$i]]
+            if ($descending) { $rank = $sortedNames.Count - 1 - $rank }
         }
-        [long]$line = $lineOf[$i]
+        [long]$line = $(if ($useLine) { $lines[$i] } else { 0 })
         if ($descending) { $line = $maxLine - $line }
         $keys[$i] = ($rank * $span + $line) * $n + $i
         $items[$i] = $i
     }
     [Array]::Sort($keys, $items)
-    return $items
+    return , $items
 }
 
 function getMoreRowsText {
@@ -420,7 +466,7 @@ function getResultItems {
         }
         $items.Add($group)
         if ($group.IsExpanded) {
-            $items.AddRange($group.ShownRows.GetRange(0, (getGroupDisplayCount $group.ShownRows.Count $group.Hits.Count $group.RowLimit)))
+            $items.AddRange($group.ShownRows.GetRange(0, (getGroupDisplayCount $group.ShownRows.Count $group.HitCount $group.RowLimit)))
             if ($null -ne $group.MoreRow) {
                 $items.Add($group.MoreRow)
             }
@@ -471,7 +517,7 @@ function sortFileGroups {
     $byOrder = @{ Expression = "Order"; Descending = $false }
     $rowKeys = if ($property -eq "Location") { @($byValue, @{ Expression = "LineNumber"; Descending = $descending }, $byOrder) } else { @($byValue, $byOrder) }
     foreach ($group in $groups) {
-        if ($group.Hits.Count -gt $limit) {
+        if ($group.HitCount -gt $limit) {
             continue
         }
         $sorted = @($group.Rows | Sort-Object $rowKeys)

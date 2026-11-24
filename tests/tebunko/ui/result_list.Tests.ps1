@@ -64,6 +64,26 @@ BeforeAll {
         clearResults "見積" ([regex]"見積")
     }
 
+    function newRun {
+        # 場所ごとのまとまり（searchContentIndex の Runs の要素）を作る。行は lineNumbers / lines の組（既定は 1 行）
+        param (
+            [string]$relDir,
+            [string]$book,
+            [string]$location,
+            [int[]]$lineNumbers,
+            [string[]]$lines
+        )
+
+        $numbers = New-Object 'System.Collections.Generic.List[int]'
+        $numbers.AddRange([int[]]$lineNumbers)
+        $texts = New-Object 'System.Collections.Generic.List[string]'
+        $texts.AddRange([string[]]$lines)
+        return @{
+            Root = "C:\tebunko\work\index"; RelPath = "$relDir\$book\$location.tsv"; RelDir = $relDir
+            FileName = "$location.tsv"; Book = $book; Location = $location; LineNumbers = $numbers; Lines = $texts
+        }
+    }
+
     function addHit {
         # 検索のヒットを 1 件、元のファイルの見出しに足す（検索の処理と同じく、見出しが無ければ作る）
         param (
@@ -79,10 +99,16 @@ BeforeAll {
         if (!$script:fileGroups.TryGetValue($key, [ref]$group)) {
             $group = newFileGroup $key $relDir $book
         }
-        $group.Hits.Add([pscustomobject]@{
-            Root = "C:\tebunko\work\index"; RelPath = "$relDir\$book\$location.tsv"; RelDir = $relDir
-            FileName = "$location.tsv"; Book = $book; Location = $location; LineNumber = $lineNumber; Line = $line
-        })
+        # 取り込み（pumpSearch）と同じく、直前のまとまりと同じ場所ならそこに足し、違えば新しいまとまりにする
+        $last = $(if ($group.Runs.Count -gt 0) { $group.Runs[$group.Runs.Count - 1] } else { $null })
+        if ($null -ne $last -and $last.Location -ceq $location) {
+            $last.LineNumbers.Add($lineNumber)
+            $last.Lines.Add($line)
+        } else {
+            $group.RunStarts.Add($group.HitCount)
+            $group.Runs.Add((newRun $relDir $book $location $lineNumber $line))
+        }
+        $group.HitCount++
         [void]$group.AddLocation($location)
         addFileGroupLocation $group $book $location
         [void]$script:dirtyGroups.Add($group)
@@ -95,6 +121,14 @@ BeforeAll {
         return @($script:resultItems | ForEach-Object {
             if ($_ -is [FileGroup]) { "#$($_.Book)" } else { "$($_.Book):$($_.LineNumber)" }
         })
+    }
+
+    function expandExportHits {
+        # getExportHits の戻り値（ファイルごとの @{ Runs; Order }）を、書き出す司令のスレッドと同じく 1 件ずつの値にする（expandHitRuns）
+        param ($parts)
+        $hits = New-Object 'System.Collections.Generic.List[object]'
+        foreach ($part in $parts) { $hits.AddRange([object[]](expandHitRuns $part.Runs $part.Order)) }
+        return , $hits.ToArray()
     }
 
     function newSortColumn([string]$path) {
@@ -261,8 +295,12 @@ Describe "ensureRows" -Tag Unit {
 
     It "相対フォルダが空・無いときは、インデックス名も空にする" {
         $group = newFileGroup "C:\共有\見積.xlsx" "" "見積.xlsx"
-        $group.Hits.Add([pscustomobject]@{ Root = "C:\tebunko\work\index"; RelPath = "見積.xlsx\4月.tsv"; RelDir = $null
-            FileName = "4月.tsv"; Book = "見積.xlsx"; Location = "4月"; LineNumber = 1; Line = "`t見積" })
+        $run = newRun "" "見積.xlsx" "4月" 1 "`t見積"
+        $run.RelPath = "見積.xlsx\4月.tsv"
+        $run.RelDir = $null
+        $group.RunStarts.Add(0)
+        $group.Runs.Add($run)
+        $group.HitCount++
 
         ensureRows $group
 
@@ -1139,16 +1177,241 @@ Describe "getExportHits" -Tag Unit {
         @{ Name = "上限を超えている: ファイル名の絞り込み（大文字・小文字を区別しない）"; Truncated = $true; Filter = "DOCX"; Expected = "1,2,3" }
         @{ Name = "上限を超えている: 合うファイルが無い"; Truncated = $true; Filter = "存在しない"; Expected = "" }
     ) {
-        $hits = getExportHits $Truncated $Filter ([bool]$Sorted)
+        $hits = expandExportHits (getExportHits $Truncated $Filter ([bool]$Sorted))
 
         (@($hits | ForEach-Object { $_.LineNumber }) -join ",") | Should -Be $Expected
     }
 
     It "上限を超えているときは、行の部品（HitRow）を作らず、検索の素の値を返す" {
-        $hits = getExportHits $true ""
+        $hits = expandExportHits (getExportHits $true "")
 
         $hits[0].GetType().Name | Should -Not -Be "HitRow"
         $hits[0].Book | Should -Be "b.docx"
+    }
+
+    It "画面のスレッドでは 1 件ずつの値を作らず、ファイルごとのまとまりと、書く順の番号（並べ替えているときだけ）を返す（<Name>）" -ForEach @(
+        @{ Name = "並べ替えている"; Sorted = $true; Orders = "0|0,1|0" }
+        @{ Name = "並べ替えていない"; Sorted = $false; Orders = "-|-|-" }
+    ) {
+        $parts = getExportHits $false "" $Sorted
+
+        $parts.Count | Should -Be 3
+        foreach ($part in $parts) {
+            $part | Should -BeOfType [hashtable]
+            , $part.Runs | Should -BeOfType [object[]]
+        }
+        (@($parts | ForEach-Object { if ($null -eq $_.Order) { "-" } else { $_.Order -join "," } }) -join "|") | Should -Be $Orders
+    }
+}
+
+Describe "場所ごとのまとまりの取り込み" -Tag Unit {
+    BeforeEach {
+        resetResults
+        # pumpSearch の取り込みと同じ（まとまりを見出しの Runs に足し、件数を足す）
+        function addRun {
+            param ([string]$book, [string]$location, [int[]]$lineNumbers, [string[]]$lines, [string]$relDir = "営業部\2024")
+            $key = "C:\共有\$relDir\$book"
+            $group = $null
+            if (!$script:fileGroups.TryGetValue($key, [ref]$group)) {
+                $group = newFileGroup $key $relDir $book
+            }
+            $group.RunStarts.Add($group.HitCount)
+            $group.Runs.Add((newRun $relDir $book $location $lineNumbers $lines))
+            $group.HitCount += $lines.Count
+            [void]$group.AddLocation($location)
+            addFileGroupLocation $group $book $location
+            [void]$script:dirtyGroups.Add($group)
+            $script:hitCount += $lines.Count
+            return $group
+        }
+    }
+
+    It "まとまりを取り込んでも見出しと行が同じ" {
+        # 同じ元のファイルの 2 つの場所のまとまり → 見出し 1 つ・件数は合計・場所の表記は 2 つ・行はまだ作らない
+        $group = addRun "見積.xlsx" "4月" @(1, 2) @("`t見積 山田", "`t見積 佐藤")
+        [void](addRun "見積.xlsx" "5月" @(7) @("`t見積 鈴木"))
+
+        flushResults
+
+        @($script:resultItems).Count | Should -Be 1
+        $script:resultItems[0] | Should -Be $group
+        $group.HitCount | Should -Be 3
+        $group.ShownCount | Should -Be 3
+        $group.Runs.Count | Should -Be 2
+        $group.Rows.Count | Should -Be 0
+        $group.LocationText | Should -Be "[シート]4月 ほか 1 か所"
+        $group.LocationPrefix | Should -Be "[シート]4月 ほか 1 か所 ・ "
+
+        # 開くと、HitRow の値・Order・行の場所の表記が、1 件ずつ取り込んだときと同じ
+        toggleFileGroup $group
+        $runRows = @($group.Rows | ForEach-Object { "$($_.Book)|$($_.Location)|$($_.PlaceText)|$($_.LineNumber)|$($_.Line)|$($_.Order)" })
+        resetResults
+        $single = addHit "見積.xlsx" "4月" "`t見積 山田" 1
+        [void](addHit "見積.xlsx" "4月" "`t見積 佐藤" 2)
+        [void](addHit "見積.xlsx" "5月" "`t見積 鈴木" 7)
+        flushResults
+        toggleFileGroup $single
+        $single.LocationPrefix | Should -Be "[シート]4月 ほか 1 か所 ・ "
+        ($runRows -join ";") | Should -Be (@($single.Rows | ForEach-Object { "$($_.Book)|$($_.Location)|$($_.PlaceText)|$($_.LineNumber)|$($_.Line)|$($_.Order)" }) -join ";")
+        ($runRows -join ";") | Should -BeLike "*|4月|*|1|*見積 山田|0;*|4月|*|2|*|1;*|5月|*|7|*|2"
+    }
+
+    It "開くと、行が値・順そのままに作られる" {
+        $group = addRun "見積.xlsx" "4月" @(1, 2) @("`t見積 山田", "`t見積 佐藤")
+        [void](addRun "見積.xlsx" "5月" @(7) @("`t見積 鈴木"))
+        flushResults
+
+        toggleFileGroup $group
+
+        $group.Rows.Count | Should -Be 3
+        (@($group.Rows | ForEach-Object { "$($_.Book)|$($_.Location)|$($_.LineNumber)|$($_.Line)|$($_.Order)" }) -join ";") |
+            Should -Be "見積.xlsx|4月|1|`t見積 山田|0;見積.xlsx|4月|2|`t見積 佐藤|1;見積.xlsx|5月|7|`t見積 鈴木|2"
+    }
+
+    It "開いたあとに同じ元のファイルの次のまとまりが来ても、行に重複も欠けもなく Order は 0 からの連番<suffix>" -ForEach @(
+        @{ suffix = ""; sort = $false }
+        @{ suffix = "（並べ替えをはさむ）"; sort = $true }
+    ) {
+        $group = addRun "見積.xlsx" "4月" @(1, 2) @("`t見積 山田", "`t見積 佐藤")
+        flushResults
+        ensureRows $group
+        $group.Rows.Count | Should -Be 2
+        [void](addRun "見積.xlsx" "5月" @(7, 8) @("`t見積 鈴木", "`t見積 高橋"))
+        if ($sort) {
+            $column = newSortColumn "LineNumber"
+            $ui.ResultGrid.Columns.Add($column)
+            sortResults $column
+        }
+
+        flushResults
+        ensureRows $group
+
+        $group.HitCount | Should -Be 4
+        $group.Rows.Count | Should -Be 4
+        (@($group.Rows | ForEach-Object { $_.Order } | Sort-Object) -join ",") | Should -Be "0,1,2,3"
+        (@($group.Rows | ForEach-Object { $_.LineNumber } | Sort-Object) -join ",") | Should -Be "1,2,7,8"
+    }
+
+    It "最後のまとまりまで行を作ったあと、同じまとまりに 1 件足されたら、次の ensureRows でその行だけを作る（抜けず、範囲の外を読まない）" {
+        $group = addRun "見積.xlsx" "4月" @(1, 2) @("`t見積 山田", "`t見積 佐藤")
+        flushResults
+        ensureRows $group
+        $first = @($group.Rows)
+        # 検索中に、同じ場所の 1 件が最後のまとまりに足される（pumpSearch の取り込み）
+        $group.Runs[0].LineNumbers.Add(3)
+        $group.Runs[0].Lines.Add("`t見積 鈴木")
+        $group.HitCount++
+
+        ensureRows $group
+
+        $group.Runs.Count | Should -Be 1
+        $group.Rows.Count | Should -Be 3
+        [object]::ReferenceEquals($group.Rows[0], $first[0]) | Should -BeTrue
+        [object]::ReferenceEquals($group.Rows[1], $first[1]) | Should -BeTrue
+        (@($group.Rows | ForEach-Object { "$($_.LineNumber):$($_.Order)" }) -join ",") | Should -Be "1:0,2:1,3:2"
+
+        [void](addRun "見積.xlsx" "5月" @(7) @("`t見積 高橋"))
+        ensureRows $group
+
+        (@($group.Rows | ForEach-Object { "$($_.Location):$($_.LineNumber):$($_.Order)" }) -join ",") | Should -Be "4月:1:0,4月:2:1,4月:3:2,5月:7:3"
+    }
+}
+
+Describe "pumpSearch（検索スレッドのヒットを見出しに取り込む）" -Tag Unit {
+    BeforeAll {
+        # 関数だけを search_session.ps1 から取り出す（ファイルは画面を作る処理を含むため、そのままは読み込まない）
+        $tokens = $null
+        $errors = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile("${scriptsDir}\tebunko\ui\search\search_session.ps1", [ref]$tokens, [ref]$errors)
+        $definitions = $ast.FindAll({ param ($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -in @("pumpSearch", "showSearchProgress") }, $true)
+        foreach ($definition in $definitions) { . ([scriptblock]::Create($definition.Extent.Text)) }
+        ${searchPumpMilliseconds} = 60000
+        $script:searchService = [pscustomobject]@{}
+        $script:searchService | Add-Member ScriptMethod IsRunning { return $true }
+
+        function newQueuedHit {
+            # 検索スレッドが返す 1 件ずつの形。RelPath は本文インデックスのファイル（1 つに元のファイルがいくつも入る）
+            param ([string]$location, [int]$lineNumber, [string]$line, [string]$book = "見積.xlsx")
+            return [pscustomobject]@{
+                Root = "C:\tebunko\work\index"; RelPath = "営業部\2024\00001.tsv"; RelDir = "営業部\2024"
+                FileName = "00001.tsv"; Book = $book; Location = $location; LineNumber = $lineNumber; Line = $line
+            }
+        }
+    }
+
+    BeforeEach {
+        resetResults
+        $script:pumpQueue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'
+        $script:search = @{ TraceFirstRow = $true; Shared = @{ Queue = $script:pumpQueue; Total = 0; Stop = $false; Finished = $false } }
+    }
+
+    AfterAll {
+        $script:search = $null
+    }
+
+    It "直前のまとまりと同じ Location の 1 件は、そのまとまりに足し、Runs.Count を増やさない" {
+        $script:pumpQueue.Enqueue((newQueuedHit "4月" 1 "`t見積 山田"))
+        $script:pumpQueue.Enqueue((newQueuedHit "4月" 2 "`t見積 佐藤"))
+        $script:pumpQueue.Enqueue((newQueuedHit "5月" 7 "`t見積 鈴木"))
+        $script:pumpQueue.Enqueue((newQueuedHit "4月" 9 "`t見積 高橋"))
+
+        pumpSearch
+
+        $group = $script:groupList[0]
+        $script:groupList.Count | Should -Be 1
+        $group.Runs.Count | Should -Be 3
+        ($group.RunStarts -join ",") | Should -Be "0,2,3"
+        ($group.Runs[0].LineNumbers -join ",") | Should -Be "1,2"
+        $group.HitCount | Should -Be 4
+        $script:hitCount | Should -Be 4
+        $script:pumpQueue.IsEmpty | Should -BeTrue
+    }
+
+    It "同じ場所でも、本文インデックスのファイル（RelPath）が違う 1 件は、新しいまとまりにする（分けたファイルの塊をまたがない）" {
+        $first = newQueuedHit "4月" 1 "`t見積 山田"
+        $second = newQueuedHit "4月" 2 "`t見積 佐藤"
+        $second.RelPath = "営業部\2024\00002.tsv"
+        $script:pumpQueue.Enqueue($first)
+        $script:pumpQueue.Enqueue($second)
+
+        pumpSearch
+
+        $group = $script:groupList[0]
+        $group.Runs.Count | Should -Be 2
+        ($group.RunStarts -join ",") | Should -Be "0,1"
+        ensureRows $group
+        (@($group.Rows | ForEach-Object { "$($_.LineNumber):$($_.RelPath)" }) -join ",") | Should -Be "1:$($first.RelPath),2:$($second.RelPath)"
+    }
+
+    It "同じ RelPath・同じ場所で Book だけ違う 2 件は、別の見出しにする" {
+        $script:pumpQueue.Enqueue((newQueuedHit "Sheet1" 1 "`t見積 山田" "見積.xlsx"))
+        $script:pumpQueue.Enqueue((newQueuedHit "Sheet1" 2 "`t見積 佐藤" "請求.xlsx"))
+
+        pumpSearch
+
+        $script:groupList.Count | Should -Be 2
+        (@($script:groupList | ForEach-Object { "$($_.Book):$($_.HitCount):$($_.Runs.Count)" }) -join ",") | Should -Be "見積.xlsx:1:1,請求.xlsx:1:1"
+        $script:hitCount | Should -Be 2
+    }
+
+    It "1 件ずつの形もまとまりも取り込め、開くと届いた順の行になる" {
+        $script:pumpQueue.Enqueue((newQueuedHit "4月" 1 "`t見積 山田"))
+        $run = newRun "営業部\2024" "見積.xlsx" "4月" @(5, 6) @("`t見積 佐藤", "`t見積 鈴木")
+        $run.RelPath = "営業部\2024\00001.tsv"
+        $run.FileName = "00001.tsv"
+        $script:pumpQueue.Enqueue($run)
+        $script:pumpQueue.Enqueue((newQueuedHit "4月" 8 "`t見積 高橋"))
+
+        pumpSearch
+
+        $group = $script:groupList[0]
+        # まとまりはそのまま足す（直前と同じ場所でも、まとまりを組み直さない）。その後の 1 件は、届いたまとまりに足す
+        $group.Runs.Count | Should -Be 2
+        [object]::ReferenceEquals($group.Runs[1], $run) | Should -BeTrue
+        ($group.RunStarts -join ",") | Should -Be "0,1"
+        $group.HitCount | Should -Be 4
+        ensureRows $group
+        (@($group.Rows | ForEach-Object { "$($_.LineNumber):$($_.Order)" }) -join ",") | Should -Be "1:0,5:1,6:2,8:3"
     }
 }
 
@@ -1175,7 +1438,7 @@ Describe "getExportHits（並べ替え・上限内は、行を作らず表の順
         $script:filterText = $Filter
         applySort $Property $Desc
 
-        $hits = getExportHits $false $Filter $true
+        $hits = expandExportHits (getExportHits $false $Filter $true)
         $old = getViewRows
 
         $hits.Count | Should -Be $old.Count
@@ -1196,7 +1459,7 @@ Describe "getExportHits（並べ替え・上限内は、行を作らず表の順
         applySort "Location" $false
         $before = @($script:groupList | ForEach-Object { $_.Rows.Count })
 
-        $hits = getExportHits $false "" $true
+        $hits = expandExportHits (getExportHits $false "" $true)
 
         @($script:groupList | ForEach-Object { $_.Rows.Count }) -join "," | Should -Be ($before -join ",")
         $hits.Count | Should -Be 2502
@@ -1211,19 +1474,19 @@ Describe "getExportHits（並べ替え・上限内は、行を作らず表の順
         $ui.ResultGrid.Columns.Add($column)
         applySort "Location" $false
 
-        @(getExportHits $false "" $true).Count | Should -Be 1
+        @(expandExportHits (getExportHits $false "" $true)).Count | Should -Be 1
     }
 
     It "RelDir・Line が `$null の素のヒットでも、行の経路と同じく空として出る" {
         $group = addHit "n.docx" "ページ001" "x" 1
-        $group.Hits[0].RelDir = $null
-        $group.Hits[0].Line = $null
+        $group.Runs[0].RelDir = $null
+        $group.Runs[0].Lines[0] = $null
         flushResults
         $column = newSortColumn "Location"
         $ui.ResultGrid.Columns.Add($column)
         applySort "Location" $false
 
-        $hit = @(getExportHits $false "" $true)[0]
+        $hit = @(expandExportHits (getExportHits $false "" $true))[0]
         $row = (getViewRows)[0]
 
         "$($hit.RelDir)" | Should -Be $row.RelDir
