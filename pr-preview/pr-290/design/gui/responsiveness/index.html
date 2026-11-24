@@ -2771,6 +2771,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2899,6 +2905,90 @@
     
   
     画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス管理）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（検索と検索結果）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス作成の実行）
   
 
     
@@ -3292,7 +3382,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_20" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3314,14 +3404,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_20" id="__nav_3_7_20_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_17">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_20">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4158,6 +4248,10 @@
 <td>ファイル数・行数に比例する処理（検索、取り込み一覧の集計、インデックスの削除、TSV の数え上げ）は別のスレッド（検索の司令・画面の裏の仕事。<a href="../../structure/threads/#スレッドの一覧">スレッドの一覧</a>）で行い、終わったら画面のスレッドで結果を反映する。終わるまでは、その操作のボタンを無効にして何をしているかをステータスに出す</td>
 </tr>
 <tr>
+<td><strong>窓を前面に戻したとき（<code>Activated</code>）は、変わったものだけを読み直す</strong></td>
+<td>設定ファイル（<code>setting.config</code>）と取り込み一覧は <code>FileSystemWatcher</code>（<code>shared/core/file_watch.ps1</code>）で見張り、合図が来たときだけ更新の印（更新日時と長さ。<code>getFileStamp</code>）を比べ、印が違うときだけ読み直す。合図を取りこぼしても気づけるよう、見張りが無いとき（ネットワークの場所・作れなかったとき）と、前に保険で比べてから 60 秒たったときも比べる（60 秒の起点は、保険で比べたときだけ進める。合図や見張りが無いことで比べたときに進めると、見張りの無いネットワークの設定ファイルが、前面復帰を繰り返す間いつまでも調べられないため）。取り込み一覧の印は裏の仕事の中で取り（<code>getIndexingStateIfChanged</code>）、印が同じなら集計しない。印が同じなら <code>getTargetFolders</code> も呼ばない（呼ぶとネットワークのフォルダの判定まで走る）。ほかの呼び元（起動・タブの切り替え・更新の終わり）は、印にかかわらず集計する</td>
+</tr>
+<tr>
 <td><strong>繰り返し読むものは小さくする</strong></td>
 <td>1 秒ごとに読むものは、受け渡しの口の進み具合（<code>readIndexingProgress</code>。メモリ上の値）にする。数万行の取り込み一覧を毎秒読み直すと、その間ずっと画面が止まる（5 万行で 1 回約 1.4 秒）。書く側（インデクサ）が数えて進み具合に入れる</td>
 </tr>
@@ -4242,10 +4336,16 @@
 <p>別スレッドとタイマーの扱い：</p>
 <ul>
 <li>スレッドの分け方・寿命・閉じる順番は <a href="../../structure/threads/">プロセスとスレッド</a> にまとめる。画面のプロセスの中で、画面・検索・画面の裏の仕事・インデックス作成が別々のスレッドで動く。</li>
-<li>検索は検索の司令のスレッド（<code>SearchService</code>。画面を開いている間 1 つ）が、要求（<code>newSearchRequest</code>）を 1 つずつ実行する。lib.ps1 の読み込みと照合のプールの用意は、スレッドを始めたときに 1 回だけ行う。結果は要求の中のキュー（<code>ConcurrentQueue</code>）に、場所ごとのまとまり（<code>Runs</code> の要素）を 1 つずつ入れ、画面の <code>DispatcherTimer</code>（0.1 秒間隔）で取り出して表に加える（<code>pumpSearch</code>）。1 回に取り出す量は件数ではなく時間で区切る（件数で区切ると、ヒットが多いときに画面が止まる）。中止は要求の <code>Stop</code> で伝える（検索の司令（gram 索引・列挙）と照合の作業スレッドが、同じ要求の <code>Stop</code> を本文インデックスのファイル 1 件・フォルダ 1 つ・インデックス名 1 つの切れ目で見て止まる）。新しい要求を渡すと、前の要求の <code>Stop</code> を立てる。</li>
+<li>検索は検索の司令のスレッド（<code>SearchService</code>。画面を開いている間 1 つ）が、要求（<code>newSearchRequest</code>）を 1 つずつ実行する。lib.ps1 の読み込みと照合のプールの用意は、スレッドを始めたときに 1 回だけ行う。結果は要求の中のキュー（<code>ConcurrentQueue</code>）に入れ、画面の <code>DispatcherTimer</code>（0.1 秒間隔）で取り出して表に加える（<code>pumpSearch</code>）。1 回に取り出す量は件数ではなく時間で区切る（件数で区切ると、ヒットが多いときに画面が止まる）。中止は要求の <code>Stop</code> で伝える（検索の司令（gram 索引・列挙）と照合の作業スレッドが、同じ要求の <code>Stop</code> を本文インデックスのファイル 1 件・フォルダ 1 つ・インデックス名 1 つの切れ目で見て止まる）。新しい要求を渡すと、前の要求の <code>Stop</code> を立てる。</li>
 <li>本文インデックスのファイルの件数取得・取り込み一覧の集計・インデックスの削除・選択行のプレビューの読み込み・起動時の残った Office の記録の読み取りは <code>startJob</code>（<code>shell.ps1</code>）で実行する。<code>startJob</code> は画面の裏の仕事のスレッド（<code>BackgroundQueue</code>。2 つ。長い仕事の間もプレビューが待たないため）に渡す。各スレッドは最初の仕事の前に lib.ps1 を 1 回だけ読み込む。終わったかは <code>DispatcherTimer</code>（<code>jobTimer</code>。仕事がある間だけ 0.05 秒間隔）で確かめ、画面のスレッドで <code>onDone</code> を呼ぶ。同じ集計が重ならないよう、実行中なら「もう一度」の印だけを立てて、終わってからやり直す。</li>
 <li><strong><code>startJob</code> の 4 つ目の引数 <code>queue</code> で列を選ぶ</strong>（既定は <code>"default"</code>。上の <code>BackgroundQueue</code>）。届かないネットワークのフォルダ（元のフォルダ・元のファイル。<a href="../open-file/">元のファイルを開く</a>）に触る仕事は <code>"network"</code> を渡す。ネットワークを調べる専用の列は <code>ensureNetworkQueue</code> が初めて使うときに作り（<code>BackgroundQueue</code> をもう 1 つ）、両方のスレッドを空の仕事で温める。ネットワークのパスの無い利用者には、この列も lib.ps1 の追加の読み込みも増えない（<a href="../../structure/threads/#スレッドの一覧">スレッドの一覧</a>）。</li>
-<li><strong>起動と切り替えの読み込みは、ローカルでも画面のスレッドでしない。</strong> 窓が開いたあとのインデックスのツリー（<code>loadIndexTree</code>）・検索対象の名前の決定（<code>loadTargets</code>。名前を決めて取り込み一覧に保存する）・前の版のインデックスの確認（<code>refreshLegacyIndexMessage</code>）は、ワークスペースがローカルでも <code>startJob</code> で裏の列に出す（<code>getWorkspaceJobQueue</code> が列を選ぶだけで、行き先を分けない）。これらは件数（インデックスの数）に比例して重くなり、数百件では画面が数十秒止まって見えた。「ローカルなら画面のスレッドでよい」という例外は、件数に比例しない軽い確かめ（1 つのパスの有無など）にだけ使う。登録のフォルダの重なりの確かめ（<code>getTargetFolders</code>）も、件数の 2 乗で増やさないよう、別名があり得るネットワークのパスどうしだけを比べる。<code>tests/meta/ui_thread_io.Tests.ps1</code> が、画面のスレッドからこれらの読み書きを呼ぶことを止める。窓が開いてから一覧・ツリーがそろうまでの止まりは、<code>tests/gui/index_many.Tests.ps1</code> が 500 件で測る。</li>
+<li><strong>画面のスレッドで件数ぶん回す処理は <code>startUiWork</code>（<code>shell.ps1</code>）を通す。</strong> インデックスの数・ヒットしたファイルの数など、件数に比例する反映を 1 つのイベント処理の中で全件回すと、終わるまで画面が固まる（<code>startJob</code> は裏のスレッドに出すが、画面の部品に触る反映は画面のスレッドでしかできない）。<code>startUiWork -Name &lt;名前&gt; -Items &lt;配列&gt; -OnItem { param($item, $state) } -OnDone { param($state) }</code> は、1 回に予算（既定 60 ミリ秒。<code>pumpSearch</code> と同じ）ぶんだけ回し、残りは間隔（既定 100 ミリ秒）の <code>DispatcherTimer</code> で次の回に回す。件数が少なければ、呼んだその場で <code>OnDone</code> まで終わる。</li>
+<li><code>-State</code>（ハッシュテーブル）で呼び元の値を渡し、<code>OnBegin</code>・<code>OnItem</code>・<code>OnDone</code>・<code>OnStop</code> が受ける（<code>GetNewClosure</code> は使わない）。<code>-OnBegin</code> は 1 回分を回し始める直前に 1 回だけ呼ぶ（設定の読み直しなど、1 回だけ求める値はここ）。渡した配列は写し取るので、呼び元があとで一覧を変えても回す中身は変わらない。</li>
+<li>同じ名前の仕事が回っている間に呼ばれたときは <code>-WhenBusy</code> で選ぶ。<code>Restart</code>（既定）は前の分を捨てて最初から（読み直しのたびに結果が変わるもの。<code>indexTree</code>）。<code>Requeue</code> は今の分を最後まで回し、呼ばれた分は最後の 1 つだけ控えて、そのあとに 1 回だけ回し直す（呼び続けられても終わるもの。<code>indexStats</code>）。</li>
+<li><code>OnBegin</code>・<code>OnItem</code>・<code>OnDone</code> が例外を投げたら、<code>reportUnexpectedError</code> で知らせて仕事を止め（タイマーも控えも残さない）、<code>OnStop</code> を呼ぶ。<code>stopUiWork &lt;名前&gt;</code> で捨てたときは <code>OnStop</code> も <code>OnDone</code> も呼ばない。<code>completeUiWork &lt;名前&gt;</code> は控えも含めて残りをその場で全部回す（テスト用。結果をすぐ読みたいとき）。</li>
+<li>窓が閉じたとき（<code>Add_Closed</code>）に <code>stopAllUiWork</code> で全部止める。<code>Add_Closing</code> には置かない（閉じるのを取りやめたとき、反映だけが止まるため）。ワークスペースの切り替えは、行を作り直す <code>fillTargetItems</code>（<code>stopUiWork indexStats</code>）と <code>loadIndexTree</code>（<code>stopUiWork indexTree</code>）が前の分を捨てる。</li>
+<li>今 <code>startUiWork</code> を通すのは、インデックス一覧の集計の反映（<code>applyIndexStats</code>。名前 <code>indexStats</code>）と、検索対象ツリーの反映（<code>applyIndexTreeData</code>。名前 <code>indexTree</code>。終わるまで <code>indexTreeLoading</code> は真のまま）。後から足す処理も同じ部品を通す。</li>
+<li><strong>起動と切り替えの読み込みは、ローカルでも画面のスレッドでしない。</strong> 窓が開いたあとのインデックスのツリー（<code>loadIndexTree</code>）・検索対象の名前の決定（<code>loadTargets</code>。名前を決めて取り込み一覧に保存する）・前の版のインデックスの確認（<code>refreshLegacyIndexMessage</code>）は、ワークスペースがローカルでも <code>startJob</code> で裏の列に出す（<code>getWorkspaceJobQueue</code> が列を選ぶだけで、行き先を分けない）。これらは件数（インデックスの数）に比例して重くなり、数百件では画面が数十秒止まって見えた。「ローカルなら画面のスレッドでよい」という例外は、件数に比例しない軽い確かめ（1 つのパスの有無など）にだけ使う。登録のフォルダの重なりの確かめ（<code>getTargetFolders</code>）も、件数の 2 乗で増やさないよう、別名があり得るネットワークのパスどうしだけを比べる。<code>tests/meta/ui_thread_io.Tests.ps1</code> が、画面のスレッドからこれらの読み書きを呼ぶことを止める。窓が開いてから一覧・ツリーがそろうまでの止まりと、起動後の操作（一覧の行の選択・ツリーのチェック・前面復帰・絞り込みの 1 文字・更新中の毎秒の反映）ごとの止まりは、<code>tests/gui/index_many.Tests.ps1</code> が 500 件で測る。</li>
 <li><strong>ネットワークのパス（UNC・ネットワークドライブ）は <code>testNetworkPath</code>（<code>shared/core/folder.ps1</code>）で、共有に接続せずに見分ける。</strong> <code>\\server\share\…</code>・<code>\\?\UNC\…</code> は UNC。<code>\\?\C:\…</code>（<code>toLongPath</code> の形）・<code>\\.\…</code> はドライブ文字として扱い、<code>[System.IO.DriveInfo]</code> の <code>DriveType</code> を見る（<code>GetDriveType</code> は共有に接続しない）。ローカルとするのは <code>Fixed</code>・<code>Removable</code>・<code>CDRom</code>・<code>Ram</code> だけで、<code>Network</code> と、切断したドライブがそう見えることのある <code>NoRootDirectory</code>・<code>Unknown</code> は安全な側に倒してネットワークとする。ローカルのパスは今までどおり画面のスレッドでその場で確かめ、ネットワークのパスだけを <code>"network"</code> の列に出す。ワークスペースがネットワークにあるときの、ワークスペースの中に触る仕事は <code>getWorkspaceJobQueue</code> で列を選ぶ（<a href="../network/#ワークスペースがネットワークにあるとき">ワークスペースがネットワークにあるとき</a>）。「見つからない」と「接続できない」は <code>Test-Path</code> では区別できない（届かない共有でも例外を出さず <code>$false</code> を返すことがある）ため、例外を投げる呼び出し（<code>[System.IO.File]::GetAttributes</code>）で調べる <code>getPathState</code>（<code>shared/core/fs.ps1</code>）を使う。</li>
 <li>インデックス作成は <code>newIndexingSession</code> で画面のプロセスの中のスレッド（MTA・BelowNormal）で実行し、<code>DispatcherTimer</code>（1 秒間隔）で <code>IsRunning</code> と受け渡しの口の進み具合（<code>readIndexingProgress</code>）を確認する（<a href="../indexing-run/#更新の進み具合">インデックス作成の進み具合</a>）。終わったら受け渡しの口の終了コード（<code>GetExitCode</code>）で表示を分け（<a href="../indexing-run/#中止終了ログ">中止・終了・ログ</a>）、<code>Close</code> でスレッドを片づける。</li>
 <li>進み具合の段階が <code>確認</code> になったら、インデックス作成の確認ダイアログを開く（<a href="../indexing-run/#インデックス更新の確認ダイアログ">インデックス作成の確認ダイアログ</a>）。<strong>ダイアログを開いている間も <code>DispatcherTimer</code> は動く</strong>（<code>ShowDialog</code> は入れ子のメッセージループのため）。開く前に「開いた」ことにして、二重に開かないようにする。</li>

@@ -2771,6 +2771,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2899,6 +2905,90 @@
     
   
     画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス管理）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（検索と検索結果）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス作成の実行）
   
 
     
@@ -3390,7 +3480,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_20" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3412,14 +3502,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_20" id="__nav_3_7_20_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_17">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_20">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4400,7 +4490,7 @@
 </tr>
 <tr>
 <td><code>scripts/shared/ui/shell.ps1</code></td>
-<td>画面の共通部品。待つ間のダイアログ（<code>showWaitDialog</code>・<code>updateWaitDialog</code>・<code>closeWaitDialog</code>）、ステータス表示（<code>setStatus</code>。出し先は <code>setStatusSink</code> で渡された処理で、<code>tebunko/ui/shell/services.ps1</code> が下の欄への書き込みを登録する）、メッセージ・確認の窓の標題に使うツールの表示名を受け取る口（<code>setShellTitle</code>。<code>tebunko/ui/shell/services.ps1</code> が読み込みの直後に渡す）、メッセージ（<code>showMessage</code>。<code>dialog_confirm.xaml</code> を使う自前の画面）、確認ダイアログ（<code>showConfirm</code>。結果の行は <code>factGone</code> / <code>factKept</code> / <code>factNext</code> で <code>ConfirmFact</code> を作り、選択肢のボタンは <code>newChoiceContent</code> で 2 行のボタンにする。ボタンの <code>Click</code> と <code>ContentRendered</code> は <code>GetNewClosure()</code> で値を取り込んだスクリプトブロックにし、スクリプトスコープの変数に置かない）、例外を拾う <code>safe</code>、予期しないエラーを知らせる <code>reportUnexpectedError</code>（<code>safe</code> の catch と、画面のスレッドの <code>Dispatcher</code> で捕まえていない例外の両方から呼ぶ。後者からの呼び出しだけ、同じ例外（型・メッセージ・発生場所）の繰り返しを抑える）と、それを <code>Dispatcher.UnhandledException</code> に登録する <code>registerUnhandledErrorHandler</code>（<code>gui.ps1</code> が起動時に呼ぶ）、タイマー（<code>newTimer</code>）、画面の裏の仕事（<code>startJob</code>。<code>gui.ps1</code> が用意する <code>BackgroundQueue</code> に渡す。<a href="../responsiveness/">画面を固まらせない待たせ方</a>）</td>
+<td>画面の共通部品。待つ間のダイアログ（<code>showWaitDialog</code>・<code>updateWaitDialog</code>・<code>closeWaitDialog</code>）、ステータス表示（<code>setStatus</code>。出し先は <code>setStatusSink</code> で渡された処理で、<code>tebunko/ui/shell/services.ps1</code> が下の欄への書き込みを登録する）、メッセージ・確認の窓の標題に使うツールの表示名を受け取る口（<code>setShellTitle</code>。<code>tebunko/ui/shell/services.ps1</code> が読み込みの直後に渡す）、メッセージ（<code>showMessage</code>。<code>dialog_confirm.xaml</code> を使う自前の画面）、確認ダイアログ（<code>showConfirm</code>。結果の行は <code>factGone</code> / <code>factKept</code> / <code>factNext</code> で <code>ConfirmFact</code> を作り、選択肢のボタンは <code>newChoiceContent</code> で 2 行のボタンにする。ボタンの <code>Click</code> と <code>ContentRendered</code> は <code>GetNewClosure()</code> で値を取り込んだスクリプトブロックにし、スクリプトスコープの変数に置かない）、例外を拾う <code>safe</code>、予期しないエラーを知らせる <code>reportUnexpectedError</code>（<code>safe</code> の catch と、画面のスレッドの <code>Dispatcher</code> で捕まえていない例外の両方から呼ぶ。後者からの呼び出しだけ、同じ例外（型・メッセージ・発生場所）の繰り返しを抑える）と、それを <code>Dispatcher.UnhandledException</code> に登録する <code>registerUnhandledErrorHandler</code>（<code>gui.ps1</code> が起動時に呼ぶ）、タイマー（<code>newTimer</code>）、画面の裏の仕事（<code>startJob</code>。<code>gui.ps1</code> が用意する <code>BackgroundQueue</code> に渡す。<a href="../responsiveness/">画面を固まらせない待たせ方</a>）。画面のスレッドで件数ぶん回す処理の分割（<code>startUiWork</code>・<code>stopUiWork</code>・<code>stopAllUiWork</code>・<code>completeUiWork</code>・<code>testUiWorkRunning</code>。<a href="../responsiveness/">応答性</a>）</td>
 </tr>
 <tr>
 <td><code>scripts/shared/ui/message_view.ps1</code></td>

@@ -2767,6 +2767,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2895,6 +2901,90 @@
     
   
     画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス管理）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（検索と検索結果）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス作成の実行）
   
 
     
@@ -3278,7 +3368,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_20" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3300,14 +3390,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_20" id="__nav_3_7_20_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_17">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_20">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4338,7 +4428,7 @@
     B --&gt; T["splitContentIndexTasks&lt;br&gt;約 16MB ずつの作業に分ける"]
     T --&gt; E["searchContentIndexFiles&lt;br&gt;読み込みと照合（作業が 2 つ以上なら並列）"]
     E --&gt; P["readContentIndexPlaces&lt;br&gt;一致の位置から元のファイル・場所・行"]
-    E --&gt; F["Runs&lt;br&gt;場所ごとのまとまり"]
+    E --&gt; F["Hits"]
     F --&gt; G["toSearchResultLines&lt;br&gt;コピー用の行"]</code></pre>
 <table>
 <thead>
@@ -4393,30 +4483,6 @@
 <td><code>searchContentIndex</code></td>
 </tr>
 <tr>
-<td><code>getHitRunCount</code></td>
-<td>runs</td>
-<td>int</td>
-<td>まとまり（<code>Runs</code> の要素）の一覧の、行の数の合計</td>
-<td><a href="../../search/speed/">検索を速くする仕組み</a></td>
-<td>searchContentIndex、画面</td>
-</tr>
-<tr>
-<td><code>expandHitRuns</code></td>
-<td>runs</td>
-<td>List</td>
-<td>まとまりの一覧を、1 行ずつの PSCustomObject（Root・RelPath・RelDir・FileName・Book・Location・LineNumber・Line）の一覧にする（同じ順）。出力・計測・テストなど、1 件ずつの形が要るときだけ使う</td>
-<td>同上</td>
-<td>出力・並べ替え・テスト</td>
-</tr>
-<tr>
-<td><code>splitHitRuns</code></td>
-<td>runs, count</td>
-<td><code>@{Keep; Extra; KeepCount}</code></td>
-<td>まとまりの一覧を、先頭から count 行までの分（Keep）と残り（Extra）に分ける（まとまりの途中で切るならその 1 つを前後に分ける。count が負なら全部 Keep。runs は変えない）</td>
-<td>同上</td>
-<td>searchContentIndex</td>
-</tr>
-<tr>
 <td><code>newPlaceExclude</code></td>
 <td>includeShapes, includeComments</td>
 <td>regex / <code>$null</code></td>
@@ -4467,8 +4533,8 @@
 <tr>
 <td><code>searchContentIndexFiles</code></td>
 <td>contentIndexFiles, start, count, regex, max, textRegex, scanMode, cache, include, exclude, excludePlace, stopSignal（<code>Stop</code> を持つもの。ファイル 1 件ごとに見て、立っていればここまでのヒットを返す）, gate（照合の合図。<code>$null</code> は上限で打ち切る今までの動き）, slot（gate の自分の番号）, checkEvery（gate を見るヒットの間隔）, overflowDir（数えるだけの間のヒットを書き溜める置き場所。空は書かない）</td>
-<td><code>@{Runs; Skipped; Count; Timeout; OverflowFailed}</code></td>
-<td>contentIndexFiles の start から count 件を読み、regex に一致する行を、場所ごとのまとまり（<code>Runs</code>。後述）にして返す（1 行に複数一致しても 1 件）。読めない・形が崩れている・<code>contentIndexSearchMaxBytes</code>（64MB）より大きい本文インデックスのファイルは、そのファイルだけ飛ばしてパスを <code>Skipped</code> に入れる（時間切れだけは飛ばさず、そのまま伝える）。<code>ScanMode</code> に応じて全文に 1 回照合し、一致しない本文インデックスのファイルは飛ばす。gate があると、表に入る上限を超えた時点（自分の <code>max</code> 件を超えたとき、または自分より前の作業の件数の和 + 自分の件数が上限を超えたとき）から、行を作らずに件数だけを数える（戻らない。<code>Count</code> に入れ、<code>overflowDir</code> があれば行を <code>&lt;slot&gt;.tsv</code> に書き溜める。<a href="../../search/#上限を超えた分の数え上げと書き溜め">上限を超えた分</a>）。照合の時間切れは、gate があれば投げずに <code>Timeout</code> で返す。一致の位置から場所・行を求める（<code>readContentIndexPlaces</code>）。Excel の図形・コメントの行（<code>CellPrefixed</code>）は、区切りのタブより後から始まる一致だけをヒットにする（<code>testCellPrefixedHit</code>。セル番地だけの一致は件数・上限に数えない）。元のファイルがテキストの拡張子（<code>getContentIndexFileKind</code>）なら、ヒットの行を <code>truncateHitLine</code> で切る（Excel・Word・PowerPoint は切らない）。インデックス作成中の本文インデックスのファイルも読めるよう共有して開き、読めないものは飛ばす</td>
+<td><code>@{Hits; Skipped; Count; Timeout; OverflowFailed}</code></td>
+<td>contentIndexFiles の start から count 件を読み、regex に一致する行を <code>Hits</code> に返す（1 行に複数一致しても 1 件）。読めない・形が崩れている・<code>contentIndexSearchMaxBytes</code>（64MB）より大きい本文インデックスのファイルは、そのファイルだけ飛ばしてパスを <code>Skipped</code> に入れる（時間切れだけは飛ばさず、そのまま伝える）。<code>ScanMode</code> に応じて全文に 1 回照合し、一致しない本文インデックスのファイルは飛ばす。gate があると、表に入る上限を超えた時点（自分の <code>max</code> 件を超えたとき、または自分より前の作業の件数の和 + 自分の件数が上限を超えたとき）から、行を作らずに件数だけを数える（戻らない。<code>Count</code> に入れ、<code>overflowDir</code> があれば行を <code>&lt;slot&gt;.tsv</code> に書き溜める。<a href="../../search/#上限を超えた分の数え上げと書き溜め">上限を超えた分</a>）。照合の時間切れは、gate があれば投げずに <code>Timeout</code> で返す。一致の位置から場所・行を求める（<code>readContentIndexPlaces</code>）。Excel の図形・コメントの行（<code>CellPrefixed</code>）は、区切りのタブより後から始まる一致だけをヒットにする（<code>testCellPrefixedHit</code>。セル番地だけの一致は件数・上限に数えない）。元のファイルがテキストの拡張子（<code>getContentIndexFileKind</code>）なら、ヒットの行を <code>truncateHitLine</code> で切る（Excel・Word・PowerPoint は切らない）。インデックス作成中の本文インデックスのファイルも読めるよう共有して開き、読めないものは飛ばす</td>
 <td>同上</td>
 <td>searchContentIndex（並列検索のスレッドでも動く）</td>
 </tr>
@@ -4482,9 +4548,9 @@
 </tr>
 <tr>
 <td><code>searchContentIndex</code></td>
-<td>word, contentIndexFiles, simpleMatch, limit, stopSignal（検索の要求など <code>Stop</code> を持つもの。ファイル 1 件ごとに見て、作業スレッドにも渡す。<code>$null</code> は止めない）, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動で最大 4）, cache（<code>newTsvTextCache</code>）, includeShapes, includeComments（図形・コメントの場所も検索するか。<code>newPlaceExclude</code>）, taskBytes, onProgress（<code>{ param($done, $total, $newRuns, $hitTotal) }</code>。done・total は本文インデックスのファイルの数、newRuns はその作業のまとまりの一覧、hitTotal は今までの件数）, pool（照合のプール <code>newContentIndexWorkerPool</code>。<code>$null</code> なら並列にするときだけ作って最後に閉じる）, checkEvery（作業が合図を見るヒットの間隔）, overflowDir（溢れの置き場所。空は書き溜めない）</td>
-<td><code>@{Runs; HitCount; SimpleMatch; Total; Truncated; HitTotal; CountTimeout; OverflowFailed; Cancelled; Skipped}</code>（<code>Truncated</code> は上限を超えたこと、<code>HitTotal</code> は上限を超えた分も含む件数で、中止・総数の時間切れは -1。<code>Skipped</code> は飛ばした本文インデックスのファイルのパスの一覧）</td>
-<td>本文インデックスを検索する（照合は <code>searchContentIndexFiles</code>＝.NET の <code>StreamReader</code>＋<code>[regex]</code>）。Runs は場所ごとのまとまり（1 つの場所の続いた行）の一覧で、要素は hashtable（Root・RelPath（本文インデックスのファイル）・RelDir・FileName・Book・Location・LineNumbers〈<code>List[int]</code>〉・Lines〈<code>List[string]</code>〉）。HitCount は Runs の行の数。1 件ずつの値（PSCustomObject。LineNumber・Line を持つ）が要るときは <code>expandHitRuns</code> で作る（検索の途中では作らない）。Total は本文インデックスのファイルの数。作業（約 16MB）ごとに進捗を知らせ、中止に対応する。件数の上限（<code>limit</code>）を超えても打ち切らず、表（Runs）には上限までを入れ、超えた分は数え続けて <code>HitTotal</code> にする（作業の返した行のうち表に入らない分は、<code>overflowDir</code> の <code>&lt;作業の番号&gt;.head.tsv</code> に書く）。作業が 2 つ以上なら複数スレッドで並行して検索する（結果の順は変わらない）。照合が時間切れになれば例外にする</td>
+<td>word, contentIndexFiles, simpleMatch, limit, stopSignal（検索の要求など <code>Stop</code> を持つもの。ファイル 1 件ごとに見て、作業スレッドにも渡す。<code>$null</code> は止めない）, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動で最大 4）, cache（<code>newTsvTextCache</code>）, includeShapes, includeComments（図形・コメントの場所も検索するか。<code>newPlaceExclude</code>）, taskBytes, onProgress（<code>{ param($done, $total, $newHits, $hitTotal) }</code>。done・total は本文インデックスのファイルの数、hitTotal は今までの件数）, pool（照合のプール <code>newContentIndexWorkerPool</code>。<code>$null</code> なら並列にするときだけ作って最後に閉じる）, checkEvery（作業が合図を見るヒットの間隔）, overflowDir（溢れの置き場所。空は書き溜めない）</td>
+<td><code>@{Hits; SimpleMatch; Total; Truncated; HitTotal; CountTimeout; OverflowFailed; Cancelled; Skipped}</code>（<code>Truncated</code> は上限を超えたこと、<code>HitTotal</code> は上限を超えた分も含む件数で、中止・総数の時間切れは -1。<code>Skipped</code> は飛ばした本文インデックスのファイルのパスの一覧）</td>
+<td>本文インデックスを検索する（照合は <code>searchContentIndexFiles</code>＝.NET の <code>StreamReader</code>＋<code>[regex]</code>）。Hits は PSCustomObject（Root・RelPath（本文インデックスのファイル）・RelDir・FileName・Book・Location・LineNumber・Line）。Total は本文インデックスのファイルの数。作業（約 16MB）ごとに進捗を知らせ、中止に対応する。件数の上限（<code>limit</code>）を超えても打ち切らず、表（Hits）には上限までを入れ、超えた分は数え続けて <code>HitTotal</code> にする（作業の返した行のうち表に入らない分は、<code>overflowDir</code> の <code>&lt;作業の番号&gt;.head.tsv</code> に書く）。作業が 2 つ以上なら複数スレッドで並行して検索する（結果の順は変わらない）。照合が時間切れになれば例外にする</td>
 <td><a href="../../search/">検索</a></td>
 <td>検索・画面</td>
 </tr>
@@ -4516,7 +4582,7 @@
 <td><code>newSearchRequest</code></td>
 <td>word, simpleMatch, folders, limit, option, workDir（既定 <code>$workspace.Dir</code>）</td>
 <td>検索の要求（<code>[hashtable]::Synchronized</code>）</td>
-<td>検索 1 回分の要求を作る。画面が条件と <code>Stop</code>（取り消し）を書き、検索の司令がヒット（<code>Queue</code>。場所ごとのまとまりを 1 つずつ入れる）・進み具合・<code>Finished</code>・<code>Narrowed</code>（前の結果から絞って答えたか）・<code>NarrowReason</code>（絞るかの判定の符号）を書く</td>
+<td>検索 1 回分の要求を作る。画面が条件と <code>Stop</code>（取り消し）を書き、検索の司令がヒット（<code>Queue</code>）・進み具合・<code>Finished</code>・<code>Narrowed</code>（前の結果から絞って答えたか）・<code>NarrowReason</code>（絞るかの判定の符号）を書く</td>
 <td><a href="../../structure/threads/#寿命">プロセスとスレッド</a></td>
 <td>画面</td>
 </tr>
@@ -4546,17 +4612,17 @@
 </tr>
 <tr>
 <td><code>testRecordableHitLines</code></td>
-<td>runs</td>
+<td>hits</td>
 <td>bool</td>
-<td>ヒットの行（まとまりの一覧）が元の行そのままか（テキストの長い行を切った可能性があれば偽）</td>
+<td>ヒットの行が元の行そのままか（テキストの長い行を切った可能性があれば偽）</td>
 <td>同上</td>
 <td><code>newSearchRecord</code></td>
 </tr>
 <tr>
 <td><code>newSearchRecord</code></td>
-<td>request, folders, files, runs</td>
+<td>request, folders, files, hits</td>
 <td>hashtable</td>
-<td>最後まで検索し終えた要求の記録（条件・一覧・ヒットのまとまり〈<code>Runs</code>〉）を作る。記録できないときは <code>$null</code></td>
+<td>最後まで検索し終えた要求の記録（条件・一覧・ヒット）を作る。記録できないときは <code>$null</code></td>
 <td>同上</td>
 <td><code>updateSearchRecord</code></td>
 </tr>
@@ -4572,7 +4638,7 @@
 <td><code>selectNarrowHits</code></td>
 <td>record, word, caseSensitive</td>
 <td>List</td>
-<td>記録のまとまりのうち新しい語に一致する行を、順番を保ったまとまりの一覧にして返す（行が残らないまとまりは落とす）</td>
+<td>記録のヒットのうち新しい語に一致する行を、順番を保って返す</td>
 <td>同上</td>
 <td><code>invokeNarrowSearch</code></td>
 </tr>
@@ -4594,7 +4660,7 @@
 </tr>
 <tr>
 <td><code>updateSearchRecord</code></td>
-<td>request, state, folders, files, runs</td>
+<td>request, state, folders, files, hits</td>
 <td>–</td>
 <td>最後まで終えた要求なら記録を置き換える</td>
 <td>同上</td>
@@ -4713,18 +4779,10 @@
 <td><code>searchContentIndexFiles</code>・<code>searchContentIndex</code></td>
 </tr>
 <tr>
-<td><code>resetSearchOverflowWriter</code></td>
-<td>writer, startPos</td>
-<td>bool</td>
-<td>溢れのファイルを、そのファイルの始めの位置（startPos）まで戻す（長さと Position を戻す）。戻せなければ writer を閉じて <code>$false</code>（呼ぶ側は書き溜めをやめる）。照合のスレッドからも呼ぶため .NET だけで書く</td>
-<td><a href="../../search/#上限を超えた分の数え上げと書き溜め">上限を超えた分の数え上げと書き溜め</a></td>
-<td><code>searchContentIndexFiles</code></td>
-</tr>
-<tr>
 <td><code>writeSearchOverflowHits</code></td>
-<td>writer, runs</td>
+<td>writer, hits</td>
 <td>bool</td>
-<td>司令が、表に入らなかった行（まとまりの一覧）を溢れの head のファイルに書き足す。書けなければ <code>$false</code></td>
+<td>司令が、表に入らなかった行を溢れの head のファイルに書き足す。書けなければ <code>$false</code></td>
 <td><a href="../../search/#上限を超えた分の数え上げと書き溜め">上限を超えた分の数え上げと書き溜め</a></td>
 <td><code>searchContentIndex</code></td>
 </tr>
@@ -5038,8 +5096,8 @@
 <tr>
 <td><code>testWorkerAbandoned</code> / <code>IngestDispatcher.TakeAbandonedWorker</code></td>
 <td>– / –</td>
-<td>bool / <code>@{ Worker; Entries }</code> または <code>$null</code></td>
-<td>取り込みのスレッドが自分のワーカーが諦められたか見る / 司令がまだ後回しにしていない、諦められたワーカーと、そのワーカーで取り込み中だったファイルを、取り込み中から外して返す。諦められたワーカーのファイルは取り込まず、理由付きの失敗にする（状態は「未取り込み」のまま）</td>
+<td>bool / 後回しの値（<code>@{ Kind = "Postponed"; Entry; Reason }</code>）の並び（無ければ空）</td>
+<td>取り込みのスレッドが自分のワーカーが諦められたか見る / 司令がまだ後回しにしていない、諦められたワーカー全部の、取り込み中だったファイルを、取り込み中から外して後回しの値で返す。諦められたワーカーのファイルは取り込まず、理由付きの失敗にする（状態は「未取り込み」のまま）</td>
 <td><a href="../../indexing/ingest-list/">取り込み一覧</a></td>
 <td><code>invokeIngestTask</code>・<code>IngestDispatcher</code>・<code>invokeIndexerBody</code></td>
 </tr>

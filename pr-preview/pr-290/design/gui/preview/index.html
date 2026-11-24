@@ -2771,6 +2771,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2899,6 +2905,90 @@
     
   
     画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス管理）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（検索と検索結果）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス作成の実行）
   
 
     
@@ -3351,7 +3441,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_20" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3373,14 +3463,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_20" id="__nav_3_7_20_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_17">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_20">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4300,7 +4390,7 @@
 </tr>
 <tr>
 <td>値のコピー</td>
-<td>セルをクリックするとそのセルを選び（青い枠）、<strong>Ctrl+C でその値をコピーする</strong>。Shift＋クリック、またはドラッグで四角い範囲を選べる。右クリックメニューに、先頭に［元のファイルのこの場所を開く］（太字。ダブルクリックと同じ処理）、区切りのあとに［選んだセルをコピー］［この行をコピー］を置く（並び・文言は判断層の <code>getPreviewMenuItems</code>。プレビューが無いときは出さない）<br>・1 セル：値をそのまま（引用符・エスケープなし）入れるので、ほかのアプリの入力欄にそのまま貼れる<br>・複数セル：タブ区切り・行は改行で入れる。改行・タブ・<code>"</code> を含むセルは <code>"</code> で囲む（Excel に貼り付けると元の位置に並ぶ）<br>・ステータスに <code>セルの値をコピーしました：&lt;値&gt;</code> / <code>N 個のセルをコピーしました（Excel に貼り付けると、元の位置に並びます）</code> と表示する</td>
+<td>セルをクリックするとそのセルを選び（青い枠）、<strong>Ctrl+C でその値をコピーする</strong>。Shift＋クリック、またはドラッグで四角い範囲を選べる。右クリックメニューに、先頭に［元のファイルのこの場所を開く］（太字。ダブルクリックと同じ処理）、区切りのあとに［選んだセルをコピー］［この行をコピー］を置く（並び・文言は判断層の <code>getPreviewMenuItems</code>。プレビューが無いときは出さない）<br>・1 セル：値をそのまま（引用符・エスケープなし）入れるので、ほかのアプリの入力欄にそのまま貼れる<br>・複数セル：タブ区切り・行は改行で入れる。改行・タブ・<code>"</code> を含むセルは <code>"</code> で囲む（Excel に貼り付けると元の位置に並ぶ）<br>・ステータスにコピーしたことを表示する（文言は<a href="../messages-search/#元のファイルを開くコピーする">メッセージ（検索）</a>）</td>
 </tr>
 <tr>
 <td>縦スクロール</td>
@@ -4372,7 +4462,7 @@
 </table>
 <ul>
 <li>表（<code>ResultGrid</code>）には、見出し（<code>FileGroup</code>）と、開いているファイルの行（<code>HitRow</code>）だけを入れる（<code>result_list.ps1</code>）。見出しの行は、行の形（<code>DataGridRow</code> の <code>Template</code>）を <code>tab_search.xaml</code> の <code>FileHeaderRow</code> に替えて、列をまたいだ 1 行にする。</li>
-<li><strong>行は必要になるまで作らない（遅延表示）。</strong> 検索中は、ヒットを場所ごとのまとまり（<code>Runs</code>。検索が返したまま）のまま見出しの <code>Runs</code> に足すだけにし、1 回の取り込み（<code>pumpSearch</code>）の最後に、新しいファイルの見出しをまとめて表に入れる（<code>flushResults</code>）。表の行（<code>HitRow</code>。場所の表示・強調の元になる）は、ファイルを開いたとき・見出しを選んだとき・絞り込み・並べ替え・出力・コピーのときに、必要なファイルの分だけ作る（<code>ensureRows</code>。ファイルを開くときは先頭から <code>groupRowLimit</code> 件まで）。並べ替えるときだけ、まとまりを 1 件ずつの値に広げる（<code>expandHitRuns</code>）。見出しの件数は、絞り込みに合うファイルならヒットの数（<code>HitCount</code>。行を作らずに分かる）、合わなければ 0 にする。一致箇所の強調などは、画面に出た行だけで作る（<code>HitRow.Prepare</code>）。</li>
+<li><strong>行は必要になるまで作らない（遅延表示）。</strong> 検索中は、ヒットを場所ごとのまとまり（同じ場所で続けて見つかった行を 1 つにしたもの）にして見出しの <code>Runs</code> に足すだけにし（<code>pumpSearch</code>。1 件ずつ届いたヒットは、直前のまとまりと場所が同じならそこに足す）、1 回の取り込み（<code>pumpSearch</code>）の最後に、新しいファイルの見出しをまとめて表に入れる（<code>flushResults</code>）。表の行（<code>HitRow</code>。場所の表示・強調の元になる）は、ファイルを開いたとき・見出しを選んだとき・絞り込み・並べ替え・出力・コピーのときに、必要なファイルの分だけ作る（<code>ensureRows</code>。ファイルを開くときは先頭から <code>groupRowLimit</code> 件まで）。並べ替えるときも 1 件ずつの値には広げず、比べる値をまとまりから 1 本の並びに写して番号を並べ（<code>getSortedHitOrder</code>）、行を作るときにその番号の 1 件を読む（<code>getGroupHit</code>。まとまりごとの先頭の番号 <code>RunStarts</code> を二分探索する）。見出しの件数は、絞り込みに合うファイルならヒットの数（<code>HitCount</code>。行を作らずに分かる）、合わなければ 0 にする。一致箇所の強調などは、画面に出た行だけで作る（<code>HitRow.Prepare</code>）。</li>
 <li>開閉・絞り込み・並べ替えで多くの行を出し入れするときは、1 件ずつではなく表の中身をまとめて入れ替える（<code>rebuildResults</code>）。</li>
 <li>WPF の DataGrid のグループ化（<code>GroupStyle</code>）は使わない。グループ化は 1 件ごとに振り分けるため遅く（実測: 10,000 件・504 ファイルで、行ごとの一覧 約 3 秒 → グループ化 約 8〜9 秒。最初に閉じておいても速くならない）、列の幅が決まらない不具合もあったため。</li>
 <li>実測（10,000 件・504 ファイル。検索スレッドが結果を出し終えたあと、画面が取り込み終えるまでの待ちが検索時間の大半を占める）: 検索中に行を作ると 約 4.0 秒（うち待ち 約 2.4 秒）、行を後で作ると 約 2.6〜2.9 秒（うち待ち 約 1.1〜1.3 秒）。代わりに［すべて開く］は、そのとき行を作るため、10,000 行で 約 1.1〜1.5 秒かかる（1 ファイルを開くときは、そのファイルの分だけ。1 ファイルの行は 1,000 件までなので、ヒットが多いファイルでも 0.2 秒ほどで済む）。</li>
