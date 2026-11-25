@@ -182,18 +182,18 @@ function newCompareMarkdown($sides, $words) {
     if ($base.Count) {
         $md.Add("## 前と後の比べ（前: $($base[0].Ref) ($($base[0].Sha))・後: $($target.Ref) ($($target.Sha))）")
         $md.Add("")
-        $md.Add("同じジョブの中で、前 → 後 の順に $Rounds 組、交互に測った（データごと・ref ごとに measure_perf.ps1 を起動。1 組の中の検索は $Count 回）。値は、組ごとの「数え終わるまで」（TotalMs）の中央値を $Rounds 個並べた、その中央値。揺れは (最大 − 最小) ÷ 中央値、比は 後 ÷ 前。1 組目はインデックス作成のすぐ後に測る。GC 回数は検索の間の 0/1/2 世代の、組ごとの値の中央値。")
+        $md.Add("同じジョブの中で、前 → 後 の順に $Rounds 組、交互に測った（データごと・ref ごとに measure_perf.ps1 を起動。1 組の中の検索は $Count 回）。値は、組ごとの「数え終わるまで」（TotalMs）の中央値を $Rounds 個並べた、その中央値。揺れは (最大 − 最小) ÷ 中央値（後の揺れは、後の組に外れ値が混ざっていないかを見る参考）、比は 後 ÷ 前。1 組目はインデックス作成のすぐ後に測る。GC 回数は検索の間の 0/1/2 世代の、組ごとの値の中央値。")
     } else {
         $md.Add("## 散らばる語の検索（$($target.Ref) ($($target.Sha))）")
         $md.Add("")
         $md.Add("場所ごとに 1 件ずつ散らばる語のデータを、ほかの計測と別の置き場に作って測った（measure_perf.ps1 を $Rounds 回起動。1 回の中の検索は $Count 回）。値は「数え終わるまで」（TotalMs）の中央値。GC 回数は検索の間の 0/1/2 世代。")
     }
     $md.Add("")
-    $md.Add("| データ | 語 | 前 | 後 | 比 | 前の揺れ | 前の組ごと | 後の組ごと | 件数（前／後） | GC（前／後） |")
-    $md.Add("|---|---|---|---|---|---|---|---|---|---|")
+    $md.Add("| データ | 語 | 前 | 後 | 比 | 前の揺れ | 後の揺れ | 前の組ごと | 後の組ごと | 件数（前／後） | GC（前／後） |")
+    $md.Add("|---|---|---|---|---|---|---|---|---|---|---|")
     foreach ($w in $words) {
         $hits = "$(formatPlain $w.BaseHits)／$(formatPlain $w.TargetHits)$(if (!$w.HitsMatch) { '（違う）' })"
-        $md.Add("| $($w.Data) | $($w.Name) | $(formatMs $w.BaseMs) | $(formatMs $w.TargetMs) | $(formatPlain $w.Ratio) | $(formatPlain $w.BaseSpread) | $(formatRounds $w.BaseRounds) | $(formatRounds $w.TargetRounds) | $hits | $(formatGc $w.BaseGc)／$(formatGc $w.TargetGc) |")
+        $md.Add("| $($w.Data) | $($w.Name) | $(formatMs $w.BaseMs) | $(formatMs $w.TargetMs) | $(formatPlain $w.Ratio) | $(formatPlain $w.BaseSpread) | $(formatPlain $w.TargetSpread) | $(formatRounds $w.BaseRounds) | $(formatRounds $w.TargetRounds) | $hits | $(formatGc $w.BaseGc)／$(formatGc $w.TargetGc) |")
     }
     return (($md -join "`n") + "`n")
 }

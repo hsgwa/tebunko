@@ -14,6 +14,7 @@
 # 散らばる語（入力 scattered が 1 のとき）は、場所ごとに 1 件ずつ散らばる語のデータ（19 ファイル × 500 場所。9,500 件）を tools/perf/new_scattered_data.ps1 で別の置き場に作って測り、
 # PSCustomObject 1 万件を作る時間（tools/perf/measure_hit_objects.ps1。結果は hit_objects.md・hit_objects.json）も測る。base_ref が空なら、散らばる語は ref だけを 1 回測る。
 #   gh workflow run perf.yml -f ref=<後の ref> -f base_ref=<前の ref> -f scale=0.04 -f count=5 -f rounds=5 -f scattered=1
+# ref・base_ref にコミットを渡すときは 40 桁で書く（短い番号は actions/checkout で取れず、チェックアウトの段で止まる）。ブランチ・タグはそのまま書ける。
 # ランナーは手元の PC と条件が違う（コア数、Defender の設定）。比べるときは、このワークフローで測った数字どうしで比べる。
 # run の中は ASCII だけで書く（Windows PowerShell 5.1 は BOM の無いスクリプトを ANSI として読むため。日本語は計測スクリプトの側で出力する）。
 name: perf
@@ -22,7 +23,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 測る ref（ブランチ・タグ・コミット）
+        description: 測る ref（ブランチ・タグ・コミット。コミットは 40 桁で書く。短い番号はチェックアウトで取れない）
         required: true
         default: main
       scale:
@@ -59,7 +60,7 @@ on:
         options: ["3", "1"]
         default: "3"
       base_ref:
-        description: 比べる前の ref（空なら ref だけを今までどおり測る。指定すると、同じジョブの中で前と後の検索を交互に測る）
+        description: 比べる前の ref（空なら ref だけを今までどおり測る。指定すると、同じジョブの中で前と後の検索を交互に測る。取り込み・Excel・書き出し・入力しながらの検索は測らない。コミットは 40 桁で書く）
         required: false
         default: ""
       rounds:
@@ -132,7 +133,7 @@ jobs:
           [System.IO.File]::WriteAllText((Join-Path $work "data_seconds.txt"), $watch.Elapsed.TotalSeconds.ToString([System.Globalization.CultureInfo]::InvariantCulture))
 
       - name: 取り込みのデータを生成する
-        if: ${{ inputs.ingest != '0' }}
+        if: ${{ inputs.ingest != '0' && inputs.base_ref == '' }}
         shell: powershell
         env:
           INGEST: ${{ inputs.ingest }}
@@ -191,9 +192,18 @@ jobs:
           SCALE: ${{ inputs.scale }}
           COUNT: ${{ inputs.count }}
           RUN_ID: ${{ github.run_id }}
+          INGEST: ${{ inputs.ingest }}
+          XLSX: ${{ inputs.xlsx }}
+          EXPORT: ${{ inputs.export }}
+          TYPING: ${{ inputs.typing }}
         run: |
           $ErrorActionPreference = "Stop"
           $work = Join-Path $env:RUNNER_TEMP "perf"
+          if ($env:BASE_REF -ne "") {
+            foreach ($name in @("INGEST", "XLSX", "EXPORT", "TYPING")) {
+              if ((Get-Item "env:$name").Value -ne "0") { Write-Warning "base_ref is set: input $($name.ToLower()) is ignored (the comparison measures search only)." }
+            }
+          }
           $sides = @{ TargetTool = "target"; TargetRef = $env:REF; Rounds = 1 }
           if ($env:BASE_REF -ne "") {
             $sides.BaseTool = "base"; $sides.BaseRef = $env:BASE_REF; $sides.Rounds = [int]$env:ROUNDS
