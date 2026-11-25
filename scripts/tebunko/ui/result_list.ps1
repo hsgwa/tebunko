@@ -20,14 +20,17 @@ $ui.ResultGrid.ItemsSource = $script:resultItems
 
 # 見出しの下の行をこの数より多く出し入れするときは、1 件ずつ入れずに表を作り直す（1 件ずつだと画面の更新が重い）
 ${rebuildThreshold} = 200
+# 絞り込みで見出しを回す仕事（resultTable）の、1 回の OnItem で回す見出しの数。1 件ずつ呼ぶと、呼び出しだけで 1 件 50 マイクロ秒ほどかかる
+$script:resultTableChunkSize = 200
 
 function clearResults {
-    # 新しく検索する前に、結果を空にする
+    # 新しく検索する前に、結果を空にする（回っている絞り込みの仕事も捨てる）
     param (
         [string]$word,
         [regex]$pattern
     )
 
+    stopUiWork "resultTable"
     $script:hitCount = 0
     $script:fileGroups.Clear()
     $script:groupList.Clear()
@@ -203,12 +206,21 @@ function ensureDisplayRows {
 }
 
 function resetShownRows {
-    # 作った行のうち絞り込みに合うもの（ShownRows）を作り直す。絞り込みはファイルごとに決まるので、合うファイルは全部の行、合わなければ 0 件
+    # 作った行のうち絞り込みに合うもの（ShownRows）を作り直す。絞り込みはファイルごとに決まるので、合うファイルは全部の行、合わなければ 0 件。
+    #   shown: 絞り込みに合うか（呼ぶ側が判定済みなら渡す。$null なら、ここで testGroupShown で判定する）
+    # 行を作っていないファイル（ShownRows も空）は、一覧を作り直さない
     param (
-        [FileGroup]$group
+        [FileGroup]$group,
+        $shown = $null
     )
 
-    $group.ShownRows = $(if (testGroupShown $group) {
+    if ($group.Rows.Count -eq 0 -and $group.ShownRows.Count -eq 0) {
+        return
+    }
+    if ($null -eq $shown) {
+        $shown = testGroupShown $group
+    }
+    $group.ShownRows = $(if ($shown) {
         New-Object 'System.Collections.Generic.List[object]' (, $group.Rows)
     } else {
         New-Object 'System.Collections.Generic.List[object]'
@@ -223,12 +235,17 @@ function ensureAllRows {
 }
 
 function updateGroupCount {
-    # 見出しの件数。絞り込みに合うファイルはヒットの数（行を作っていなくても分かる）、合わないファイルは 0
+    # 見出しの件数。絞り込みに合うファイルはヒットの数（行を作っていなくても分かる）、合わないファイルは 0。
+    #   shown: 絞り込みに合うか（呼ぶ側が判定済みなら渡す。$null なら、ここで testGroupShown で判定する）
     param (
-        [FileGroup]$group
+        [FileGroup]$group,
+        $shown = $null
     )
 
-    $group.SetCount($(if (testGroupShown $group) { $group.HitCount } else { 0 }))
+    if ($null -eq $shown) {
+        $shown = testGroupShown $group
+    }
+    $group.SetCount($(if ($shown) { $group.HitCount } else { 0 }))
 }
 
 function testResultSorted {
@@ -266,8 +283,9 @@ function flushResults {
 
     # 検索中に増えたヒットを表に反映する（pumpSearch が 1 回ごとに呼ぶ）。増えたヒットが無い回は何もしない。
     #   SkipPaneHeight: 表とプレビューの境目を決め直さない（呼んだ側が、あとで 1 回決め直すとき）
-    # 新しいファイルは見出しを末尾に足し、開いているファイルは行を作って見出しの下に足す
-    if ($script:dirtyGroups.Count -eq 0) {
+    # 新しいファイルは見出しを末尾に足し、開いているファイルは行を作って見出しの下に足す。
+    # 絞り込みの仕事（resultTable）が回っている間は、表に触らずに dirtyGroups に溜めたままにする（仕事の終わりに、新しい表へ反映する）
+    if ($script:dirtyGroups.Count -eq 0 -or (testUiWorkRunning "resultTable")) {
         return
     }
     foreach ($group in $script:dirtyGroups) {
@@ -314,25 +332,29 @@ function insertGroupRows {
 }
 
 function setResultItems {
-    # 表の中身を items で置き換える（1 件ずつ入れずに、まとめて 1 回で入れ替える）。選んでいた項目が残っていれば選び直す
+    # 表の中身を items で置き換える（1 件ずつ入れずに、まとめて 1 回で入れ替える）。選んでいた項目が残っていれば選び直す。
+    #   Marked: 見出しの表の印（InView・DisplayedCount・MoreInView）は、呼ぶ側が items に合わせて直してある（絞り込みの仕事）。ここで見出しの数だけ回さない
     param (
-        $items
+        $items,
+        [switch]$Marked
     )
 
     $selected = $ui.ResultGrid.SelectedItem
-    foreach ($group in $script:groupList) {
-        $group.InView = $false
-        $group.DisplayedCount = 0
-        $group.MoreInView = $false
-    }
-    foreach ($item in $items) {
-        if ($item -is [FileGroup]) {
-            $item.InView = $true
-            if ($item.IsExpanded) {
-                $item.DisplayedCount = getGroupDisplayCount $item.ShownRows.Count $item.HitCount $item.RowLimit
+    if (!$Marked) {
+        foreach ($group in $script:groupList) {
+            $group.InView = $false
+            $group.DisplayedCount = 0
+            $group.MoreInView = $false
+        }
+        foreach ($item in $items) {
+            if ($item -is [FileGroup]) {
+                $item.InView = $true
+                if ($item.IsExpanded) {
+                    $item.DisplayedCount = getGroupDisplayCount $item.ShownRows.Count $item.HitCount $item.RowLimit
+                }
+            } elseif ($item -is [MoreRowsItem]) {
+                $item.Group.MoreInView = $true
             }
-        } elseif ($item -is [MoreRowsItem]) {
-            $item.Group.MoreInView = $true
         }
     }
     $script:resultItems = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]' (, [System.Collections.Generic.List[object]]$items)
@@ -377,6 +399,7 @@ function toggleFileGroup {
         [FileGroup]$group
     )
 
+    waitResultTable
     if ($group.IsExpanded) {
         $group.SetExpanded($false)
         updateMoreRow $group
@@ -408,6 +431,7 @@ function showMoreGroupRows {
         [FileGroup]$group
     )
 
+    waitResultTable
     $group.RowLimit = getNextRowLimit $group.RowLimit
     $first = $group.DisplayedCount
     ensureDisplayRows $group
@@ -449,6 +473,7 @@ function setAllFileGroupsExpanded {
         [bool]$expanded
     )
 
+    waitResultTable
     $script:expandNew = $expanded
     foreach ($group in $script:groupList) {
         $group.SetExpanded($expanded)
@@ -457,16 +482,111 @@ function setAllFileGroupsExpanded {
 }
 
 function applyResultFilter {
-    # 絞り込み（空なら解除）を当てて表を作り直す。絞り込みはファイル名に当てるのでファイルごとに決まり、行は作らない
+    # 絞り込み（$script:filterText。空なら解除）を当てて表を作り直す。絞り込みはファイル名に当てるのでファイルごとに決まり、行は作らない。
+    # 見出しの数に比例する仕事なので、startResultTableWork で予算ぶんずつ回し、回し終えたら表を 1 回で差し替えて onDone を呼ぶ
     param (
-        [string]$filterText
+        [string]$filterText,
+        [scriptblock]$onDone = {}
     )
 
-    foreach ($group in $script:groupList) {
-        resetShownRows $group
-        updateGroupCount $group
+    startResultTableWork $onDone
+}
+
+function startResultTableWork {
+    # 見出しごとに絞り込みを当て（件数・ShownRows・開いているファイルの行と「続き」の行）、そのファイルの表の項目を集める仕事（名前 resultTable）。
+    # 画面のスレッドで一気に回さず、startUiWork で予算ぶんずつ回す（次の文字が来たら、前の分を捨てて最初から）。見出しの表の印もここで直す。
+    # 全部回したら、合うファイルが前と同じでなければ表を 1 回で差し替え、仕事の間に溜まった検索のヒットを反映して（flushResults）、onDone を呼ぶ。
+    # 仕事の間は、flushResults は表に触らず、表を読む操作は先に回し切る（waitResultTable）
+    param (
+        [scriptblock]$onDone = {}
+    )
+
+    $chunks = New-Object 'System.Collections.Generic.List[object]'
+    $size = [Math]::Max(1, $script:resultTableChunkSize)
+    for ($i = 0; $i -lt $script:groupList.Count; $i += $size) {
+        $chunks.Add($script:groupList.GetRange($i, [Math]::Min($size, $script:groupList.Count - $i)))
     }
-    rebuildResults
+    $state = @{ Filter = $script:filterText; Items = (New-Object 'System.Collections.Generic.List[object]'); OnDone = $onDone }
+    startUiWork -Name "resultTable" -Items $chunks.ToArray() -WhenBusy Restart -State $state -OnItem {
+        param ($chunk, $state)
+        $filter = $state.Filter
+        $items = $state.Items
+        $comparison = [System.StringComparison]::CurrentCultureIgnoreCase
+        foreach ($group in $chunk) {
+            # 見出しの数だけ通るので、判定は関数に分けずに書く（testHitFilter と同じ判定。関数の呼び出しだけで 1 件 20 マイクロ秒ほどかかる）
+            $shown = ($filter -eq "" -or ("" + $group.Book).IndexOf($filter, $comparison) -ge 0)
+            $group.InView = $false
+            $group.DisplayedCount = 0
+            $group.MoreInView = $false
+            if ($group.Rows.Count -gt 0 -or $group.IsExpanded -or $null -ne $group.MoreRow) {
+                addFilteredGroupItems $group $shown $items
+                continue
+            }
+            # 閉じていて行も「続き」の行も無い見出し（検索した直後はみなこれ）は、件数を直し、合えば見出しを 1 つ足すだけ（getGroupResultItems と同じ）
+            $group.SetCount($(if ($shown) { $group.HitCount } else { 0 }))
+            if ($group.ShownCount -gt 0) {
+                $items.Add($group)
+                $group.InView = $true
+            }
+        }
+    } -OnDone {
+        param ($state)
+        if (!(testSameResultItems $state.Items)) {
+            setResultItems $state.Items -Marked
+            updateResultPaneHeight $script:resultItems.Count
+        }
+        flushResults
+        & $state.OnDone
+    }
+}
+
+function addFilteredGroupItems {
+    # 行を作ってある・開いている見出しに絞り込みを当て、そのファイルの表の項目を items に足し、見出しの表の印を直す（startResultTableWork の 1 件）
+    param (
+        [FileGroup]$group,
+        [bool]$shown,
+        $items
+    )
+
+    resetShownRows $group $shown
+    updateGroupCount $group $shown
+    if ($group.IsExpanded) {
+        ensureDisplayRows $group
+    }
+    updateMoreRow $group
+    if ($group.ShownCount -eq 0) {
+        return
+    }
+    [void](getGroupResultItems $group $items)
+    $group.InView = $true
+    if ($group.IsExpanded) {
+        $group.DisplayedCount = getGroupDisplayCount $group.ShownRows.Count $group.HitCount $group.RowLimit
+        $group.MoreInView = ($null -ne $group.MoreRow)
+    }
+}
+
+function testSameResultItems {
+    # 表（$script:resultItems）が items と同じ項目を同じ順に持っているか（同じなら、表を差し替えない）
+    param (
+        $items
+    )
+
+    if ($items.Count -ne $script:resultItems.Count) {
+        return $false
+    }
+    for ($i = 0; $i -lt $items.Count; $i++) {
+        if (![object]::ReferenceEquals($items[$i], $script:resultItems[$i])) {
+            return $false
+        }
+    }
+    return $true
+}
+
+function waitResultTable {
+    # 絞り込みの仕事（resultTable）が回っていれば、その場で回し切る（表の状態を読む・変える操作の前に呼ぶ）
+    if (testUiWorkRunning "resultTable") {
+        completeUiWork "resultTable"
+    }
 }
 
 function sortResults {
@@ -479,6 +599,7 @@ function sortResults {
     if (!$property) {
         return
     }
+    waitResultTable
     $descending = getNextSortDirection $script:resultSort $property
     $script:resultSort = @{ Property = $property; Descending = $descending }
     applySort $property $descending
@@ -542,6 +663,7 @@ function finishResults {
 function getCurrentHitRow {
     # 選んでいる行。見出しを選んでいるときは、そのファイルの先頭の行（プレビュー・元のファイルを開く・パスのコピーに使う）。
     # 「続き」の行を選んでいるときは、行が無い
+    waitResultTable
     $item = $ui.ResultGrid.SelectedItem
     if ($item -is [MoreRowsItem]) {
         return $null
@@ -558,6 +680,7 @@ function getCurrentHitRow {
 
 function getViewRows {
     # 表示中（絞り込み・並べ替え後）の行。閉じているファイルの行も含む（出力からは使わない。テストで、出力の準備 getExportHits の順と比べるのに使う）
+    waitResultTable
     ensureAllRows
     return , (getShownHitRows $script:groupList).ToArray()
 }
@@ -574,6 +697,7 @@ function getExportHits {
         [bool]$sorted = $false
     )
 
+    waitResultTable
     $parts = New-Object 'System.Collections.Generic.List[object]'
     $byTable = ($sorted -and !$truncated)
     $groups = $(if ($byTable) { $script:groupList } else { $script:groupList | Sort-Object Order })
@@ -592,6 +716,7 @@ function getExportHits {
 
 function getSelectedRows {
     # 選んでいる行を表の順に返す。見出しを選んでいるときは、そのファイルの行（絞り込みに合うもの）をすべて含める
+    waitResultTable
     $selected = New-Object 'System.Collections.Generic.HashSet[object]'
     foreach ($item in $ui.ResultGrid.SelectedItems) {
         [void]$selected.Add($item)

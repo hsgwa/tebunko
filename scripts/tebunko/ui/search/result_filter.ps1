@@ -3,8 +3,13 @@
 # ---- 結果の絞り込み ----
 
 function applyFilter {
+    # 絞り込みを当てる。表は見出しの数だけ回して作り直すので（applyResultFilter。予算ぶんずつ回す）、要約欄の文は回し終えてから出す
     $script:filterText = $ui.FilterBox.Text.Trim()
-    applyResultFilter $script:filterText
+    applyResultFilter $script:filterText { showFilterSummary }
+}
+
+function showFilterSummary {
+    # 検索が終わっていれば、要約欄を絞り込みに合う件数の文にする（絞り込みを外したら、検索の終わりの文に戻す）
     if ($script:lastSearch -and !$script:search -and $script:hitCount -gt 0) {
         $shown = getShownHitCount
         if ($script:filterText -eq "") {

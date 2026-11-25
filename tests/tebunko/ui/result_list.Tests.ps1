@@ -50,6 +50,9 @@ BeforeAll {
         $script:paneHeightCalls += $itemCount
     }
 
+    # 画面のスレッドの分割（startUiWork ほか。絞り込みは仕事 resultTable で回す）。タイマーは偽物
+    . "$PSScriptRoot\..\..\helpers\ui_work.ps1"
+
     . "${scriptsDir}\tebunko\ui\result_list.ps1"
 
     # ---- テストの準備 ----
@@ -625,6 +628,180 @@ Describe "applyResultFilter（絞り込みの文字）" -Tag Unit {
         $script:filterText = $text
         applyResultFilter $text
         (getShownHitCount) | Should -Be 0
+    }
+}
+
+Describe "applyResultFilter（予算ぶんずつ回す）" -Tag Unit {
+    BeforeAll {
+        function addFiveGroups {
+            # 見積が 3 つ・議事録が 2 つの見出し（1 件ずつ）を、表に出しておく
+            foreach ($book in @("見積1.xlsx", "議事録1.docx", "見積2.xlsx", "議事録2.docx", "見積3.xlsx")) {
+                [void](addHit $book "4月" "`t見積" 1)
+            }
+            flushResults
+        }
+
+        function startFilter {
+            # 絞り込みを当て始める（2 件目で予算切れの時計なので、その場では回し切らない）。終わりの処理の回数を数える
+            param ([string]$text)
+            $script:filterText = $text
+            applyResultFilter $text { $script:finishCount++ }
+        }
+
+        function tickResultTable {
+            # 仕事 resultTable のタイマーの Tick を、仕事が終わるまで呼ぶ（偽のタイマー。tests\helpers\ui_work.ps1）
+            while (testUiWorkRunning "resultTable") {
+                $timer = $script:fakeTimers | Where-Object { $_.Tag -eq "resultTable" -and $_.Running } | Select-Object -Last 1
+                & $timer.OnTick $timer $null
+            }
+        }
+    }
+
+    BeforeEach {
+        resetResults
+        $script:finishCount = 0
+        # 1 件ずつ回すようにし、2 件回すと予算切れになる時計にする
+        $script:resultTableChunkSize = 1
+        $script:clock = 0
+        Mock getUiWorkMilliseconds { $script:clock += 40; $script:clock }
+        Mock showSortMark { }
+    }
+
+    AfterEach {
+        stopAllUiWork
+        $script:resultTableChunkSize = 200
+    }
+
+    It "絞り込みは予算ぶんずつ回し、回し終えてから表を 1 回で差し替える" {
+        addFiveGroups
+        $before = $script:resultItems
+
+        startFilter "見積"
+
+        [object]::ReferenceEquals($ui.ResultGrid.ItemsSource, $before) | Should -BeTrue
+        testUiWorkRunning "resultTable" | Should -BeTrue
+        tickResultTable
+        (getItemNames) -join "," | Should -Be "#見積1.xlsx,#見積2.xlsx,#見積3.xlsx"
+        [object]::ReferenceEquals($ui.ResultGrid.ItemsSource, $script:resultItems) | Should -BeTrue
+        Should -Invoke showSortMark -Exactly -Times 1
+        $script:finishCount | Should -Be 1
+    }
+
+    It "絞り込みの途中で次の文字が来たら、前の分を捨てて最初から" {
+        addFiveGroups
+
+        startFilter "見積"
+        startFilter "議事録"
+        tickResultTable
+
+        (getItemNames) -join "," | Should -Be "#議事録1.docx,#議事録2.docx"
+        Should -Invoke showSortMark -Exactly -Times 1
+        $script:finishCount | Should -Be 1
+    }
+
+    It "合うファイルが前と同じなら表を差し替えない" {
+        addFiveGroups
+        startFilter "xlsx"
+        tickResultTable
+        $before = $script:resultItems
+
+        startFilter "xls"
+        tickResultTable
+
+        [object]::ReferenceEquals($ui.ResultGrid.ItemsSource, $before) | Should -BeTrue
+        @($script:groupList | ForEach-Object { $_.ShownCount }) -join "," | Should -Be "1,0,1,0,1"
+        Should -Invoke showSortMark -Exactly -Times 1
+        $script:finishCount | Should -Be 2
+    }
+
+    It "絞り込みの途中に検索が足した見出しも、終わったときの表に入る" {
+        addFiveGroups
+
+        startFilter "見積"
+        [void](addHit "見積4.xlsx" "4月" "`t見積" 1)
+        [void](addHit "議事録3.docx" "4月" "`t見積" 1)
+        flushResults
+        tickResultTable
+
+        (getItemNames) -join "," | Should -Be "#見積1.xlsx,#見積2.xlsx,#見積3.xlsx,#見積4.xlsx"
+    }
+
+    It "絞り込みの途中に、回し終えた開いている見出しへ検索がヒットを足しても、例外が出ず、終わった表は一度に作った表と同じ" {
+        foreach ($book in @("見積1.xlsx", "見積2.xlsx", "見積3.xlsx", "見積4.xlsx", "見積5.xlsx")) {
+            [void](addHit $book "4月" "`t見積" 1)
+        }
+        flushResults
+        setAllFileGroupsExpanded $true
+        $before = $script:resultItems
+        $count = $before.Count
+
+        startFilter "見積"
+        [void](addHit "見積1.xlsx" "4月" "`t見積" 2)
+        { flushResults } | Should -Not -Throw
+        [object]::ReferenceEquals($script:resultItems, $before) | Should -BeTrue
+        $script:resultItems.Count | Should -Be $count
+        tickResultTable
+
+        $whole = getResultItems $script:groupList
+        $script:resultItems.Count | Should -Be $whole.Count
+        for ($i = 0; $i -lt $whole.Count; $i++) {
+            [object]::ReferenceEquals($script:resultItems[$i], $whole[$i]) | Should -BeTrue
+        }
+        (getItemNames) -join "," | Should -BeLike "#見積1.xlsx,見積1.xlsx:1,見積1.xlsx:2,#見積2.xlsx,*"
+    }
+
+    It "閉じた見出しの項目は見出しだけで、getGroupResultItems と同じ" {
+        $group = addHit "見積.xlsx" "4月" "`t見積" 1
+        [void](addHit "見積.xlsx" "5月" "`t見積" 2)
+        flushResults
+
+        startFilter "見積"
+        tickResultTable
+
+        $expected = getGroupResultItems $group
+        $expected.Count | Should -Be 1
+        $script:resultItems.Count | Should -Be 1
+        [object]::ReferenceEquals($script:resultItems[0], $expected[0]) | Should -BeTrue
+    }
+
+    It "絞り込みの途中に見出しを選ぶと、先に回し切ってから先頭の行を返す（<name>）" -TestCases @(
+        @{ name = "合うファイルなら先頭の行"; book = "見積1.xlsx"; expected = "見積1.xlsx:1" }
+        @{ name = "合わないファイルなら行が無い"; book = "議事録2.docx"; expected = "" }
+    ) {
+        param ($name, $book, $expected)
+        addFiveGroups
+
+        startFilter "見積"
+        $ui.ResultGrid.SelectedItem = $script:fileGroups["C:\共有\営業部\2024\$book"]
+        $row = getCurrentHitRow
+
+        testUiWorkRunning "resultTable" | Should -BeFalse
+        $(if ($null -eq $row) { "" } else { "$($row.Book):$($row.LineNumber)" }) | Should -Be $expected
+    }
+
+    It "絞り込みの途中に見出しを開閉すると、先に絞り込みを回し切る" {
+        addFiveGroups
+        $group = $script:fileGroups["C:\共有\営業部\2024\見積3.xlsx"]
+
+        startFilter "見積"
+        toggleFileGroup $group
+
+        testUiWorkRunning "resultTable" | Should -BeFalse
+        (getItemNames) -join "," | Should -Be "#見積1.xlsx,#見積2.xlsx,#見積3.xlsx,見積3.xlsx:1"
+    }
+
+    It "新しい検索は回っている絞り込みを捨てる" {
+        addFiveGroups
+
+        startFilter "見積"
+        clearResults "見積" ([regex]"見積")
+
+        testUiWorkRunning "resultTable" | Should -BeFalse
+        foreach ($timer in @($script:fakeTimers | Where-Object { $_.Tag -eq "resultTable" -and $_.Running })) {
+            & $timer.OnTick $timer $null
+        }
+        $script:resultItems.Count | Should -Be 0
+        $script:finishCount | Should -Be 0
     }
 }
 
