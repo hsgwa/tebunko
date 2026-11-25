@@ -286,4 +286,11 @@ Describe "perf.yml の比べと散らばる語の入力" -Tag Unit {
         (stepNamed "結果を Summary に書き出す") | Should -Match "compare\.md"
         (stepNamed "結果を Summary に書き出す") | Should -Match "hit_objects\.md"
     }
+
+    It "perf.yml は base_ref があるとき、取り込みのデータを作る段を飛ばす" {
+        $if = [regex]::Match((stepNamed "取り込みのデータを生成する"), "(?m)^        if: (.*)$")
+        $if.Success | Should -BeTrue
+        $if.Groups[1].Value | Should -Match "inputs\.ingest != '0'"
+        $if.Groups[1].Value | Should -Match "&& inputs\.base_ref == ''"
+    }
 }
