@@ -121,9 +121,9 @@ Describe "S13 インデックスが <count> 件・ヒット約 1 万件のとき
         $script:hitTotal = $script:perIndex * $script:indexCount
         # 場面ごとの上限（秒。CI の gui.yml の 5 回の測りの最大の 2 倍。0.5 秒単位・1.0 秒を下回らない）。A: ツリーのチェック・B: 前面復帰・D: 絞り込みの 1 文字・
         # D2: 続けて絞り込み欄を空にする・E: インデックス一覧の行の選択
-        $script:stallLimits = @{ A = 1.0; B = 2.0; D = 22.5; D2 = 22.5; E = 2.0 }
+        $script:stallLimits = @{ A = 1.0; B = 2.0; D = 1.0; D2 = 1.0; E = 2.0 }
         # そろうまでの時間（measureGuiActionStall の Total。操作から要約欄が変わるまで）の上限。決め方は stallLimits と同じ
-        $script:totalLimits = @{ D = 30.0; D2 = 30.0 }
+        $script:totalLimits = @{ D = 2.0; D2 = 2.0 }
         if ($env:TEBUNKO_GUI_STALL_LIMIT) { foreach ($key in @($script:stallLimits.Keys)) { $script:stallLimits[$key] = [double]$env:TEBUNKO_GUI_STALL_LIMIT } }
         $script:tool = newGuiTool $TestDrive
         # インデックス N 件に、同じ語を 1 行だけ含むファイルを perIndex 件ずつ。ファイル名は「見積<番号>」（数字と漢字だけ）
