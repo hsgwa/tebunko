@@ -119,8 +119,11 @@ Describe "S13 インデックスが <count> 件・ヒット約 1 万件のとき
         $script:indexCount = $count
         $script:perIndex = [Math]::Floor(9500 / $script:indexCount)
         $script:hitTotal = $script:perIndex * $script:indexCount
-        # 場面ごとの上限（秒。CI の gui.yml の 5 回の測りの最大の 2 倍。0.5 秒単位・1.0 秒を下回らない）。A: ツリーのチェック・B: 前面復帰・D: 絞り込みの 1 文字・E: インデックス一覧の行の選択
-        $script:stallLimits = @{ A = 1.0; B = 2.0; D = 22.5; E = 2.0 }
+        # 場面ごとの上限（秒。CI の gui.yml の 5 回の測りの最大の 2 倍。0.5 秒単位・1.0 秒を下回らない）。A: ツリーのチェック・B: 前面復帰・D: 絞り込みの 1 文字・
+        # D2: 続けて絞り込み欄を空にする・E: インデックス一覧の行の選択
+        $script:stallLimits = @{ A = 1.0; B = 2.0; D = 22.5; D2 = 22.5; E = 2.0 }
+        # そろうまでの時間（measureGuiActionStall の Total。操作から要約欄が変わるまで）の上限。決め方は stallLimits と同じ
+        $script:totalLimits = @{ D = 30.0; D2 = 30.0 }
         if ($env:TEBUNKO_GUI_STALL_LIMIT) { foreach ($key in @($script:stallLimits.Keys)) { $script:stallLimits[$key] = [double]$env:TEBUNKO_GUI_STALL_LIMIT } }
         $script:tool = newGuiTool $TestDrive
         # インデックス N 件に、同じ語を 1 行だけ含むファイルを perIndex 件ずつ。ファイル名は「見積<番号>」（数字と漢字だけ）
@@ -247,9 +250,19 @@ Describe "S13 インデックスが <count> 件・ヒット約 1 万件のとき
                 param ($element)
                 $element.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue("＃")
             } -Done { (getGuiText (findGui $S.Window -Id "SummaryText")) -eq "一致 $hits 件中 0 件を表示" }
-            closeGui $S
             Write-Host ("S13 D（{0} 件）: 一番長い止まり {1} 秒（{2} 秒・問い合わせ {3} 回）" -f $script:indexCount, $stall.Longest, $stall.Total, $stall.Queries)
+            # D2: 続けて欄を空にし、0 件から全部の見出しに戻す（表に入る見出しが一番多い場面）
+            setGuiStep $S "絞り込み欄を空にする止まりを測る"
+            $stall2 = measureGuiActionStall $S -Argument $box -Action {
+                param ($element)
+                $element.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue("")
+            } -Done { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "一致 $hits 件（$hits ファイル）*" }
+            closeGui $S
+            Write-Host ("S13 D2（{0} 件）: 一番長い止まり {1} 秒（{2} 秒・問い合わせ {3} 回）" -f $script:indexCount, $stall2.Longest, $stall2.Total, $stall2.Queries)
             $stall.Longest | Should -BeLessThan $script:stallLimits.D
+            $stall.Total | Should -BeLessThan $script:totalLimits.D
+            $stall2.Longest | Should -BeLessThan $script:stallLimits.D2
+            $stall2.Total | Should -BeLessThan $script:totalLimits.D2
         }
     }
 
