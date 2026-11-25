@@ -245,18 +245,22 @@ Describe "S13 インデックスが <count> 件・ヒット約 1 万件のとき
             }
             Write-Host ("S13 D（{0} 件）: 検索が終わるまで {1} 秒" -f $script:indexCount, [Math]::Round($searchClock.Elapsed.TotalSeconds, 1))
             $box = findGui $S.Window -Id "FilterBox"
+            # 要約欄は測る前に 1 回だけ探し、測る間はその文だけを読む。測るたびに窓全体から探すと、1 回の問い合わせが
+            # 見出し 9,500 件の表の要素までたどって 2 秒近くかかり、画面のスレッドが止まっていなくても止まりに見えるため
+            # （手元の 10 ミリ秒ごとの拍の計測では、そのときの画面のスレッドの一番長い空きは 66 ミリ秒だった）
+            $summary = findGui $S.Window -Id "SummaryText"
             setGuiStep $S "絞り込みに 1 文字打つ止まりを測る"
             $stall = measureGuiActionStall $S -Argument $box -Action {
                 param ($element)
                 $element.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue("＃")
-            } -Done { (getGuiText (findGui $S.Window -Id "SummaryText")) -eq "一致 $hits 件中 0 件を表示" }
+            } -Done { (getGuiText $summary) -eq "一致 $hits 件中 0 件を表示" }
             Write-Host ("S13 D（{0} 件）: 一番長い止まり {1} 秒（{2} 秒・問い合わせ {3} 回）" -f $script:indexCount, $stall.Longest, $stall.Total, $stall.Queries)
             # D2: 続けて欄を空にし、0 件から全部の見出しに戻す（表に入る見出しが一番多い場面）
             setGuiStep $S "絞り込み欄を空にする止まりを測る"
             $stall2 = measureGuiActionStall $S -Argument $box -Action {
                 param ($element)
                 $element.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue("")
-            } -Done { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "一致 $hits 件（$hits ファイル）*" }
+            } -Done { (getGuiText $summary) -like "一致 $hits 件（$hits ファイル）*" }
             closeGui $S
             Write-Host ("S13 D2（{0} 件）: 一番長い止まり {1} 秒（{2} 秒・問い合わせ {3} 回）" -f $script:indexCount, $stall2.Longest, $stall2.Total, $stall2.Queries)
             $stall.Longest | Should -BeLessThan $script:stallLimits.D
