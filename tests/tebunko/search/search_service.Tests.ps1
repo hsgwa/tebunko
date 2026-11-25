@@ -139,7 +139,7 @@ Describe "invokeSearchRequest" -Tag Io {
             $job = $pool.Submit(${contentIndexWorkerScript}.ToString(), @($poolContentIndexFiles, 0, $poolContentIndexFiles.Count, $search.Regex, -1, $search.TextRegex, $search.ScanMode, $null, $null, $null, $null))
             $output = $pool.Receive($job)
             $output[0].Timeout | Should -Be $false
-            $hits = @($output[0].Hits)
+            $hits = expandHitRuns $output[0].Runs
             $hits.Count | Should -Be 1
             $hits[0].Line.Length | Should -BeLessOrEqual 1002
             $hits[0].Line | Should -Match "対象語"

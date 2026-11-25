@@ -204,14 +204,14 @@ Describe "本文インデックスのファイルの作成と検索" -Tag Io {
     It "照合は本文インデックスのファイル 1 件ごとに Stop を見て、立ったら次のファイルを読まずにここまでのヒットを返す" {
         $search = newSearchRegex "単価" $true $false
         $firstOnly = searchContentIndexFiles $contentIndexFiles 0 1 $search.Regex -1 $search.TextRegex $search.ScanMode
-        $firstOnly.Hits.Count | Should -BeGreaterThan 0
+        getHitRunCount $firstOnly.Runs | Should -BeGreaterThan 0
         # 2 回目に読まれたときから Stop が立つ入れ物（1 件目を照合し、2 件目の前で止まる）
         $signal = [pscustomobject]@{ Reads = 0 }
         $signal | Add-Member -MemberType ScriptProperty -Name Stop -Value { $this.Reads++; $this.Reads -ge 2 }
         $found = searchContentIndexFiles $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $null $null $null $signal
-        $found.Hits.Count | Should -Be $firstOnly.Hits.Count
+        getHitRunCount $found.Runs | Should -Be (getHitRunCount $firstOnly.Runs)
         $signal.Reads | Should -Be 2
-        (searchContentIndexFiles $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $null $null $null @{ Stop = $true }).Hits.Count | Should -Be 0
+        getHitRunCount (searchContentIndexFiles $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $null $null $null @{ Stop = $true }).Runs | Should -Be 0
     }
 
     It "照合のスレッドのスクリプトも、渡された Stop を見て止まる（このスレッドで直接動かす）" {
@@ -221,9 +221,9 @@ Describe "本文インデックスのファイルの作成と検索" -Tag Io {
         $signal | Add-Member -MemberType ScriptProperty -Name Stop -Value { $this.Reads++; $this.Reads -ge 2 }
         $output = & ${contentIndexWorkerScript} $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $null $null $null $signal
         $output.Timeout | Should -Be $false
-        @($output.Hits).Count | Should -Be $firstOnly.Hits.Count
+        getHitRunCount $output.Runs | Should -Be (getHitRunCount $firstOnly.Runs)
         $output = & ${contentIndexWorkerScript} $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $null $null $null @{ Stop = $true }
-        @($output.Hits).Count | Should -Be 0
+        getHitRunCount $output.Runs | Should -Be 0
     }
 
     It "1 つのスレッドで作業が 1 つ（ファイル全部）でも、作業の途中で止まる。止めた作業の分は進み具合として知らせない" {
@@ -269,7 +269,7 @@ Describe "本文インデックスのファイルの作成と検索" -Tag Io {
         $options = [System.Text.RegularExpressions.RegexOptions]::None
         $lineRegex = [regex]::new($pattern, $options, [timespan]::FromSeconds(5))
         $textRegex = [regex]::new($pattern, $options -bor [System.Text.RegularExpressions.RegexOptions]::Multiline, [timespan]::FromMilliseconds(1))
-        $hits = (searchContentIndexFiles $slowContentIndexFiles 0 1 $lineRegex -1 $textRegex "lines").Hits
+        $hits = expandHitRuns (searchContentIndexFiles $slowContentIndexFiles 0 1 $lineRegex -1 $textRegex "lines").Runs
         $hits.Count | Should -Be 1
         $hits[0].LineNumber | Should -Be 3001
     }
@@ -691,14 +691,14 @@ Describe "searchContentIndex（正規表現の照合の時間切れ）" -Tag Io 
         $search = newSearchRegex "(a+)+$" $false $false
         $output = & ${contentIndexWorkerScript} $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $null $null $null
         $output.Timeout | Should -Be $true
-        $output.Hits | Should -BeNullOrEmpty
+        $output.Runs | Should -BeNullOrEmpty
     }
 
-    It "照合のスレッドのスクリプトは、ヒットを Hits で返す" {
+    It "照合のスレッドのスクリプトは、ヒットを場所ごとのまとまり（Runs）で返す" {
         $search = newSearchRegex "a!" $true $false
         $output = & ${contentIndexWorkerScript} $contentIndexFiles 0 $contentIndexFiles.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $null $null $null
         $output.Timeout | Should -Be $false
-        @($output.Hits).Count | Should -Be 3
+        getHitRunCount $output.Runs | Should -Be 3
     }
 }
 
@@ -1250,9 +1250,10 @@ Describe "分けた塊（版 3）のファイルの検索" -Tag Io {
         $search = newSearchRegex "行(7|88) の単価" $false $false
         $textRegex = if ($mode -eq "scan") { $null } else { $search.TextRegex }
         $result = searchContentIndexFiles $found.ContentIndexFiles 0 $found.ContentIndexFiles.Count $search.Regex -1 $textRegex $search.ScanMode
-        $numbers = @($result.Hits | ForEach-Object { $_.LineNumber } | Sort-Object)
+        $hits = expandHitRuns $result.Runs
+        $numbers = @($hits | ForEach-Object { $_.LineNumber } | Sort-Object)
         $numbers | Should -Be @(7, 88)
-        foreach ($hit in $result.Hits) { $hit.Line | Should -BeLike "行$($hit.LineNumber) の単価*" }
+        foreach ($hit in $hits) { $hit.Line | Should -BeLike "行$($hit.LineNumber) の単価*" }
         $result.Skipped.Count | Should -Be 0
     }
 }
@@ -1311,5 +1312,150 @@ Describe "expandHitRuns・getHitRunCount（場所ごとのまとまり → 1 件
         , $hits | Should -BeOfType [object[]]
         (@($hits | ForEach-Object { "$($_.Location):$($_.LineNumber):$($_.Line)" }) -join ",") | Should -Be $Expected
         (@($hits[0].PSObject.Properties.Name) -join ",") | Should -Be "Root,RelPath,RelDir,FileName,Book,Location,LineNumber,Line"
+    }
+}
+
+Describe "searchContentIndex（場所ごとのまとまり）" -Tag Io {
+    BeforeAll {
+        function script:newRunFiles {
+            # tsvs（TSV の相対パス → 行の並び）から本文インデックスのファイルを作り、getContentIndexFiles の並びを返す
+            param ([string]$name, [System.Collections.Specialized.OrderedDictionary]$tsvs)
+            $tsvRoot = Join-Path $TestDrive "runs_tsv_$name"
+            foreach ($key in $tsvs.Keys) { newTsv "$tsvRoot\$key" $tsvs[$key] }
+            $root = Join-Path $TestDrive "runs_content_index_$name"
+            [void](newContentIndexFiles $tsvRoot $root)
+            return , (getContentIndexFiles @($root)).ContentIndexFiles
+        }
+
+        function script:searchRuns {
+            # 照合のしかた（lines・scan）を選んで searchContentIndexFiles を直に呼ぶ
+            param ($files, [string]$word, [string]$mode, [int]$max = -1)
+            $search = newSearchRegex $word $true $false
+            $textRegex = if ($mode -eq "scan") { $null } else { $search.TextRegex }
+            return searchContentIndexFiles $files 0 $files.Count $search.Regex $max $textRegex $search.ScanMode
+        }
+
+        function script:newFailFiles {
+            # 本文インデックスのファイル 3 つ（元のファイルはどれもテキスト）。2 つ目は場所が 2 つで、2 つ目の場所の一致した行に mark を入れる
+            param ([string]$name, [string]$mark)
+            return , (newRunFiles $name ([ordered]@{
+                "d1\a.txt\$(toIndexFileName "本文")" = @("単価 1")
+                "d2\b.txt\$(toIndexFileName "P1")" = @("単価 2")
+                "d2\b.txt\$(toIndexFileName "P2")" = @("単価 3$mark")
+                "d3\c.txt\$(toIndexFileName "本文")" = @("なし", "単価 4")
+            }))
+        }
+    }
+
+    It "まとまりの数が場所の数まで（<mode>）" -TestCases @(
+        @{ mode = "lines" }
+        @{ mode = "scan" }
+    ) {
+        $files = newRunFiles "one_$mode" ([ordered]@{ "営業\a.xlsx\$(toIndexFileName "Sheet1")" = @(1..1000 | ForEach-Object { "単価 $_" }) })
+
+        $found = searchRuns $files "単価" $mode
+
+        @($found.Runs).Count | Should -Be 1
+        $found.Runs[0].LineNumbers.GetType() | Should -Be ([System.Collections.Generic.List[int]])
+        $found.Runs[0].Lines.GetType() | Should -Be ([System.Collections.Generic.List[string]])
+        @($found.Runs | Where-Object { $_ -isnot [hashtable] }).Count | Should -Be 0
+        getHitRunCount $found.Runs | Should -Be 1000
+    }
+
+    It "同じ本文インデックスのファイルの中でも、元のファイルが違えば別のまとまり（<mode>）" -TestCases @(
+        @{ mode = "lines" }
+        @{ mode = "scan" }
+    ) {
+        $files = newRunFiles "books_$mode" ([ordered]@{
+            "営業\a.xlsx\$(toIndexFileName "Sheet1")" = @("単価 a")
+            "営業\b.xlsx\$(toIndexFileName "Sheet1")" = @("単価 b")
+        })
+        $files.Count | Should -Be 1
+
+        $found = searchRuns $files "単価" $mode
+
+        @($found.Runs).Count | Should -Be 2
+        (@($found.Runs | ForEach-Object { "$($_.Book):$($_.Location)" }) -join ",") | Should -Be "a.xlsx:Sheet1,b.xlsx:Sheet1"
+    }
+
+    It "expandHitRuns したものが、今の 1 件ずつの形と同じ（<mode>）" -TestCases @(
+        @{ mode = "lines" }
+        @{ mode = "scan" }
+    ) {
+        $files = newRunFiles "expand_$mode" ([ordered]@{
+            "営業\見積.xlsx\$(toIndexFileName "Sheet1")" = @("品名 単価", "", "単価 100")
+            "営業\見積.xlsx\$(toIndexFileName "Sheet2")" = @("単価 200")
+            "営業\議事録.docx\$(toIndexFileName "ページ001")" = @("見積", "単価は据え置き")
+        })
+        $files.Count | Should -Be 2
+
+        $hits = expandHitRuns (searchRuns $files "単価" $mode).Runs
+
+        (@($hits[0].PSObject.Properties.Name) -join ",") | Should -Be "Root,RelPath,RelDir,FileName,Book,Location,LineNumber,Line"
+        @($hits | ForEach-Object { $_.Root } | Select-Object -Unique) | Should -Be @($files[0].Root)
+        (@($hits | ForEach-Object { "{0}|{1}|{2}|{3}|{4}|{5}|{6}" -f $_.RelPath, $_.RelDir, $_.FileName, $_.Book, $_.Location, $_.LineNumber, $_.Line }) -join "`n") | Should -Be (@(
+            "営業\content_index.docx.001.tsv|営業|議事録.docx|議事録.docx|ページ001|2|単価は据え置き"
+            "営業\content_index.xlsx.001.tsv|営業|見積.xlsx|見積.xlsx|Sheet1|1|品名 単価"
+            "営業\content_index.xlsx.001.tsv|営業|見積.xlsx|見積.xlsx|Sheet1|3|単価 100"
+            "営業\content_index.xlsx.001.tsv|営業|見積.xlsx|見積.xlsx|Sheet2|1|単価 200"
+        ) -join "`n")
+    }
+
+    It "上限で返すときも、表に入れた行の数で数える（<mode>）" -TestCases @(
+        @{ mode = "lines" }
+        @{ mode = "scan" }
+    ) {
+        $files = newRunFiles "max_$mode" ([ordered]@{ "営業\a.xlsx\$(toIndexFileName "Sheet1")" = @(1..20 | ForEach-Object { "単価 $_" }) })
+
+        $found = searchRuns $files "単価" $mode 5
+
+        getHitRunCount $found.Runs | Should -Be 6
+        @($found.Runs).Count | Should -Be 1
+    }
+
+    It "全文の照合が途中で時間切れになっても、それまでのまとまりを戻し、1 行ずつの照合と重ならない" {
+        $files = newRunFiles "timeout" ([ordered]@{ "遅い\遅い.xlsx\$(toIndexFileName "S")" = (@("aab") + @(1..3000 | ForEach-Object { "aaaaaaaaaaaaaaaaaaaaaa!" }) + @("aaab")) })
+        $pattern = "^(a|aa)+b"
+        $options = [System.Text.RegularExpressions.RegexOptions]::None
+        $multiline = $options -bor [System.Text.RegularExpressions.RegexOptions]::Multiline
+        $lineRegex = [regex]::new($pattern, $options, [timespan]::FromSeconds(5))
+        $textRegex = [regex]::new($pattern, $multiline, [timespan]::FromMilliseconds(1))
+        $slowTextRegex = [regex]::new($pattern, $multiline, [timespan]::FromSeconds(30))
+
+        $found = searchContentIndexFiles $files 0 1 $lineRegex -1 $textRegex "lines"
+        $expected = searchContentIndexFiles $files 0 1 $lineRegex -1 $slowTextRegex "lines"
+
+        getHitRunCount $found.Runs | Should -Be 2
+        @($found.Runs).Count | Should -Be 1
+        ($found.Runs[0].LineNumbers -join ",") | Should -Be "1,3002"
+        (toKeys (expandHitRuns $found.Runs)) -join "`n" | Should -Be ((toKeys (expandHitRuns $expected.Runs)) -join "`n")
+    }
+
+    It "照合の途中で失敗したファイルは、そのファイルで足したまとまりを消し、次のファイルの 1 件を消したまとまりに足さない" {
+        # truncateHitLine は照合のループの中（テキストのヒットの行を作るとき・まとまりに足す前）でだけ呼ばれる。印のある行でだけ投げる
+        Mock truncateHitLine { if ($line -like "*失敗の印*") { throw "失敗の印" }; return $line }
+        $files = newFailFiles "fail" " 失敗の印"
+        $files.Count | Should -Be 3
+
+        $found = searchContentIndexFiles $files 0 $files.Count ([regex]"単価") -1 $null "scan"
+
+        @($found.Runs | Where-Object { $_.RelPath -eq $files[1].RelPath }).Count | Should -Be 0
+        @($found.Runs | Where-Object { $_.RelPath -eq $files[0].RelPath }).Count | Should -Be 1
+        $third = @($found.Runs | Where-Object { $_.RelPath -eq $files[2].RelPath })
+        $third.Count | Should -Be 1
+        ($third[0].LineNumbers -join ",") | Should -Be "2"
+        getHitRunCount $found.Runs | Should -Be 2
+        @($found.Skipped) | Should -Be @($files[1].Path)
+    }
+
+    It "（対の行）照合の途中で失敗しなければ、同じデータで 2 つ目のファイルのまとまりがある" {
+        Mock truncateHitLine { if ($line -like "*失敗の印*") { throw "失敗の印" }; return $line }
+        $files = newFailFiles "pass" ""
+
+        $found = searchContentIndexFiles $files 0 $files.Count ([regex]"単価") -1 $null "scan"
+
+        (@($found.Runs | Where-Object { $_.RelPath -eq $files[1].RelPath } | ForEach-Object { $_.Location }) -join ",") | Should -Be "P1,P2"
+        @($found.Skipped).Count | Should -Be 0
+        getHitRunCount $found.Runs | Should -Be 4
     }
 }

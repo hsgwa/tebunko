@@ -116,6 +116,25 @@ function newSearchOverflowWriter {
     }
 }
 
+function resetSearchOverflowWriter {
+    # 溢れのファイル（newSearchOverflowWriter の writer）を、position（書き始める前の位置）まで切り詰めて戻す。戻せたら $true。
+    # Position も戻さないと、次の書き込みが穴を作る。戻せなければ writer を閉じて $false（例外は投げない。照合のスレッドからも呼ぶ）
+    param (
+        $writer,
+        [long]$position
+    )
+
+    try {
+        $writer.Flush()
+        $writer.BaseStream.SetLength($position)
+        $writer.BaseStream.Position = $position
+        return $true
+    } catch {
+        try { $writer.Dispose() } catch { return $false }
+        return $false
+    }
+}
+
 function writeSearchOverflowHits {
     # 司令が、表に入らなかった行（searchContentIndex の Hits の要素）を、溢れの head のファイルに書き足す。
     # writer は newSearchOverflowWriter の結果（書き始めは呼ぶ側が決める）。書けなければ $false（writer は閉じない）

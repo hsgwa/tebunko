@@ -122,6 +122,39 @@ Describe "上限を超えた分の書き溜め" -Tag Io {
 }
 
 Describe "溢れの書き溜め（照合の細部）" -Tag Io {
+    It "resetSearchOverflowWriter は始めの位置まで戻す" {
+        $dir = Join-Path $TestDrive "ov_reset"
+        $writer = newSearchOverflowWriter $dir "0.tsv"
+        try {
+            $writer.WriteLine("一")
+            $writer.Flush()
+            $position = $writer.BaseStream.Position
+            $writer.WriteLine("二")
+            $writer.WriteLine("三")
+
+            resetSearchOverflowWriter $writer $position | Should -BeTrue
+
+            $writer.BaseStream.Length | Should -Be $position
+            $writer.BaseStream.Position | Should -Be $position
+            $writer.WriteLine("四")
+        } finally {
+            $writer.Dispose()
+        }
+        [System.IO.File]::ReadAllText((Join-Path $dir "0.tsv")) | Should -Be "一`n四`n"
+    }
+
+    It "resetSearchOverflowWriter は戻せなければ閉じて失敗を返す" {
+        $writer = newSearchOverflowWriter (Join-Path $TestDrive "ov_reset_fail") "0.tsv"
+        $writer.WriteLine("一")
+        # 書く先のファイルを先に閉じて、書けない writer にする
+        $writer.BaseStream.Dispose()
+
+        { $script:resetResult = resetSearchOverflowWriter $writer 0 } | Should -Not -Throw
+
+        $script:resetResult | Should -BeFalse
+        $writer.BaseStream | Should -BeNullOrEmpty
+    }
+
     It "Excel の図形でセル番地だけに一致した行は、表にも溢れにも入れない。長いテキストの行は表と同じに切る" {
         $tsvRoot = Join-Path $TestDrive "ov2_tsv"
         newTsv "$tsvRoot\a\図.xlsx\$(toIndexFileName "S[図形]")" @("F1`tx", "G1`tF1 あ", "F1`ty", "G1`tF1 い", "G1`tF1 う")
@@ -176,7 +209,7 @@ Describe "溢れの書き溜め（照合の細部）" -Tag Io {
         { searchContentIndex "(a+)+$" $files $false 5 -workerCount 1 } | Should -Throw -ExpectedMessage "*時間がかかりすぎる*"
     }
 
-    It "合図（gate）があると、照合のスレッドのスクリプトは時間切れでも Hits を返し、時間切れの欄に 1 を書く" {
+    It "合図（gate）があると、照合のスレッドのスクリプトは時間切れでもまとまり（Runs）を返し、時間切れの欄に 1 を書く" {
         $tsvRoot = Join-Path $TestDrive "ov6_tsv"
         newTsv "$tsvRoot\s0\b0.xlsx\S.tsv" @("a", "a")
         newTsv "$tsvRoot\s1\b1.xlsx\S.tsv" @(("a" * 40) + "!")
@@ -188,7 +221,7 @@ Describe "溢れの書き溜め（照合の細部）" -Tag Io {
         $gate[1] = 10
         $output = & ${contentIndexWorkerScript} $files 0 $files.Count $search.Regex 10 $search.TextRegex $search.ScanMode $null $null $null $null $null $gate 0 64 ""
         $output.Timeout | Should -BeTrue
-        @($output.Hits).Count | Should -Be 2
+        getHitRunCount $output.Runs | Should -Be 2
         $gate[4] | Should -Be 1
     }
 
@@ -216,12 +249,12 @@ Describe "溢れの書き溜め（照合の細部）" -Tag Io {
         $expectedRows = @()
         $tableRows = @()
         for ($s = 0; $s -lt $Slots; $s++) {
-            $expected = toRows (searchContentIndexFiles $files $s 1 $lineRegex -1 $textRegex "lines").Hits
+            $expected = toRows (expandHitRuns (searchContentIndexFiles $files $s 1 $lineRegex -1 $textRegex "lines").Runs)
             $found = searchContentIndexFiles $files $s 1 $lineRegex 1 $textRegex "lines" $null $null $null $null $null $gate $s 1 $dir
             $found.Timeout | Should -BeFalse
             $found.OverflowFailed | Should -BeFalse
             $found.Count | Should -Be $expected.Count
-            $own = toRows $found.Hits
+            $own = toRows (expandHitRuns $found.Runs)
             # 表は上限 + 1 件（上限を超えたと分かる 1 件）まで。残りは溢れのファイルに入る
             # （2 つ目の作業は、前の作業の件数だけで上限を超えているので、表に行を作らず数えるだけ）
             $tableCount = if ($s -eq 0) { 2 } else { 0 }
