@@ -790,6 +790,28 @@ Describe "applyResultFilter（予算ぶんずつ回す）" -Tag Unit {
         (getItemNames) -join "," | Should -Be "#見積1.xlsx,#見積2.xlsx,#見積3.xlsx,見積3.xlsx:1"
     }
 
+    It "絞り込みの途中に検索の終わりの並べ直し（finishResults）が来ても、終わった表は並べ替えた順" {
+        $number = 0
+        foreach ($book in @("見積1.xlsx", "議事録1.docx", "見積2.xlsx", "議事録2.docx", "見積3.xlsx")) {
+            $number++
+            [void](addHit $book "4月" "`t見積" $number)
+        }
+        flushResults
+        # 検索中に［該当行の番号］の逆順で並べ替えてあった
+        $script:resultSort = @{ Property = "LineNumber"; Descending = $true }
+
+        startFilter "見積"
+        finishResults
+        tickResultTable
+
+        (getItemNames) -join "," | Should -Be "#見積3.xlsx,#見積2.xlsx,#見積1.xlsx"
+        $whole = getResultItems $script:groupList
+        $script:resultItems.Count | Should -Be $whole.Count
+        for ($i = 0; $i -lt $whole.Count; $i++) {
+            [object]::ReferenceEquals($script:resultItems[$i], $whole[$i]) | Should -BeTrue
+        }
+    }
+
     It "新しい検索は回っている絞り込みを捨てる" {
         addFiveGroups
 

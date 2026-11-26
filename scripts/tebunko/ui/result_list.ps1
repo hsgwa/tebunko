@@ -484,6 +484,7 @@ function setAllFileGroupsExpanded {
 function applyResultFilter {
     # 絞り込み（$script:filterText。空なら解除）を当てて表を作り直す。絞り込みはファイル名に当てるのでファイルごとに決まり、行は作らない。
     # 見出しの数に比例する仕事なので、startResultTableWork で予算ぶんずつ回し、回し終えたら表を 1 回で差し替えて onDone を呼ぶ
+    #   filterText: 使わない（絞り込みは $script:filterText を読む。行を作る ensureRows の testGroupShown と同じ値にするため）
     param (
         [string]$filterText,
         [scriptblock]$onDone = {}
@@ -599,7 +600,6 @@ function sortResults {
     if (!$property) {
         return
     }
-    waitResultTable
     $descending = getNextSortDirection $script:resultSort $property
     $script:resultSort = @{ Property = $property; Descending = $descending }
     applySort $property $descending
@@ -630,6 +630,8 @@ function applySort {
         [bool]$descending
     )
 
+    # 絞り込みの仕事が回っていれば、先に回し切る（仕事の終わりが、始めたときの順の表で上書きしないため。列見出し・検索の終わりの並べ直しの両方から来る）
+    waitResultTable
     foreach ($group in $script:groupList) {
         if ($group.HitCount -gt ${groupRowLimit}) {
             $group.HitOrder = getSortedHitOrder $group.Runs $property $descending $(if ($property -eq "Kind") { getKindByLocation $group } else { @{} })
