@@ -461,15 +461,30 @@ function getResultItems {
 
     $items = New-Object 'System.Collections.Generic.List[object]'
     foreach ($group in $groups) {
-        if ($group.ShownCount -eq 0) {
-            continue
-        }
-        $items.Add($group)
-        if ($group.IsExpanded) {
-            $items.AddRange($group.ShownRows.GetRange(0, (getGroupDisplayCount $group.ShownRows.Count $group.HitCount $group.RowLimit)))
-            if ($null -ne $group.MoreRow) {
-                $items.Add($group.MoreRow)
-            }
+        [void](getGroupResultItems $group $items)
+    }
+    return , $items
+}
+
+function getGroupResultItems {
+    # 1 つのファイルの、結果の表に並べる項目（getResultItems と同じ並び）。絞り込みで行が残らなければ空、
+    # 閉じていれば見出しだけ、開いていれば見出しと行（と「続き」の行）。items を渡せば、そこに足して返す
+    param (
+        $group,
+        $items = $null
+    )
+
+    if ($null -eq $items) {
+        $items = New-Object 'System.Collections.Generic.List[object]'
+    }
+    if ($group.ShownCount -eq 0) {
+        return , $items
+    }
+    $items.Add($group)
+    if ($group.IsExpanded) {
+        $items.AddRange($group.ShownRows.GetRange(0, (getGroupDisplayCount $group.ShownRows.Count $group.HitCount $group.RowLimit)))
+        if ($null -ne $group.MoreRow) {
+            $items.Add($group.MoreRow)
         }
     }
     return , $items

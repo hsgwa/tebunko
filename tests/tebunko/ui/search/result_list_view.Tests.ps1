@@ -336,6 +336,32 @@ Describe "getResultItems" -Tag Unit {
     }
 }
 
+Describe "getGroupResultItems" -Tag Unit {
+    It "getGroupResultItems は 1 つの見出しの項目を、getResultItems と同じ並びで返す（<name>）" -TestCases @(
+        @{ name = "閉じた見出しは見出しだけ"; expanded = $false; more = $false; shown = $true; expected = "#" }
+        @{ name = "開いた見出しは見出しと行"; expanded = $true; more = $false; shown = $true; expected = "#,a1,a2" }
+        @{ name = "続きの行のある見出しは見出し・行・続きの行"; expanded = $true; more = $true; shown = $true; expected = "#,a1,a2,続き" }
+        @{ name = "件数 0 の見出しは空"; expanded = $true; more = $true; shown = $false; expected = "" }
+    ) {
+        param ($name, $expanded, $more, $shown, $expected)
+        $a = newTestGroup 1 @((newTestRow 1 "a1"), (newTestRow 2 "a2")) $expanded
+        $a | Add-Member -NotePropertyName MoreRow -NotePropertyValue $(if ($more) { "続き" } else { $null })
+        if (!$shown) {
+            $a.ShownRows.Clear()
+            $a.ShownCount = 0
+        }
+
+        $items = getGroupResultItems $a
+
+        @($items | ForEach-Object { if ([object]::ReferenceEquals($_, $a)) { "#" } elseif ($_ -is [string]) { $_ } else { $_.Line } }) -join "," | Should -Be $expected
+        $whole = getResultItems @($a)
+        $items.Count | Should -Be $whole.Count
+        for ($i = 0; $i -lt $whole.Count; $i++) {
+            [object]::ReferenceEquals($items[$i], $whole[$i]) | Should -BeTrue
+        }
+    }
+}
+
 Describe "getGroupDisplayCount" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "ヒットを持たなければ、作ってある行すべて"; shown = 7; hits = 0; limit = 0; expected = 7 }
