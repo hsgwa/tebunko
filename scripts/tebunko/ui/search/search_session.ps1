@@ -58,12 +58,18 @@ function startSearch {
 
     # 件数の上限は検索ごとに控える（設定の画面で変えても、走っている検索には効かない。打ち切りの文言も、この検索の上限で出す）
     $limit = $script:searchLimit
-    $shared = $script:searchService.Request((newSearchRequest $word $simpleMatch $folders $limit $option))
+    $request = newSearchRequest $word $simpleMatch $folders $limit $option
+    # 司令のスレッドがヒットを入れたとき・終わったときに、取り出しの仕事を画面のディスパッチャーへ積む（requestSearchPump。WM_TIMER を待たない）
+    $request.Wake = $script:searchWake
+    $request.WakeCallback = $script:searchPumpCallback
+    $shared = $script:searchService.Request($request)
     markSearchSentTrace
     $script:search = @{
         Shared = $shared
         Limit = $limit
         Word = $word; Pattern = $pattern; SimpleMatch = $simpleMatch; UseRegex = $useRegex; Option = $option; Start = Get-Date
+        # 取り出し（pumpSearch）が、タイマーと積んだ仕事のどちらから呼ばれたかの回数（処理の記録 search に書く）
+        PumpTimer = 0; PumpPosted = 0
     }
 
     $ui.SearchProgress.Visibility = "Visible"
@@ -119,14 +125,12 @@ function clearSearchView {
     updateSearchButton
 }
 
-function pumpSearch {
-    # 検索スレッドの結果を表に移し、進み具合を表示する
-    $s = $script:search
-    if ($null -eq $s) {
-        $script:searchTimer.Stop()
-        return
-    }
-    $shared = $s.Shared
+function takeSearchHits {
+    # 結果の列から、1 回の予算（searchPumpMilliseconds）のあいだヒットを取り出し、元のファイルの見出しに足す（pumpSearch の 1 回ごと）
+    param (
+        [hashtable]$shared
+    )
+
     $item = $null
     # この回に最後に足したまとまりと、その見出し（続けて同じ場所のヒットが届くことが多いので、見出しを引かずに足す）
     $last = $null
@@ -182,6 +186,31 @@ function pumpSearch {
         [void]$script:dirtyGroups.Add($group)
         $script:hitCount += $rowCount
     }
+}
+
+function pumpSearch {
+    # 検索スレッドの結果を表に移し、進み具合を表示する。0.1 秒のタイマー（posted は $null）と、司令が積んだ仕事（requestSearchPump。posted は積んだ要求）の
+    # 2 つの道から呼ばれ、どちらでも中身は同じ。積んだ仕事は、窓を閉じたあと・前の検索（中止・新しい検索・ワークスペースの切り替え）の分なら何もしない
+    param (
+        $posted = $null
+    )
+
+    if ($script:searchPumpClosed) {
+        return
+    }
+    $s = $script:search
+    if ($null -ne $posted -and ($null -eq $s -or ![object]::ReferenceEquals($posted, $s.Shared))) {
+        return
+    }
+    if ($null -eq $s) {
+        $script:searchTimer.Stop()
+        return
+    }
+    if ($null -ne $posted) { $s.PumpPosted++ } else { $s.PumpTimer++ }
+    $shared = $s.Shared
+    # 取り出す前に印を偽にする（取り出しの途中で司令が入れた分は、司令が積み直す仕事が拾う）
+    $shared.PumpQueued = $false
+    takeSearchHits $shared
     flushResults
     if ($script:hitCount -gt 0 -and !$s.TraceFirstRow) {
         $s.TraceFirstRow = $true
@@ -194,8 +223,14 @@ function pumpSearch {
         $shared.Error = $script:searchService.GetFailure()
         $shared.Finished = $true
     }
+    # Finished を読んでから列が空かを見る（逆にすると、見たあとに司令が最後の分を入れて Finished を立てたとき、取り残したまま終える）
     if ($shared.Finished -and $shared.Queue.IsEmpty) {
         finishSearch
+        return
+    }
+    if (!$shared.Queue.IsEmpty) {
+        # 予算を使い切って残りがある。タイマー（WM_TIMER）を待たずに、自分をもう一度積む
+        requestSearchPump $shared
     }
 }
 
@@ -235,6 +270,7 @@ function finishSearch {
     $script:search = $null
     $script:searchTimer.Stop()
     markTrace "search" "画面: 総数"
+    markTrace "search" "画面: 取り出しの道（タイマー $($s.PumpTimer) 回・積んだ仕事 $($s.PumpPosted) 回）"
     markTrace "startup" "11 総数が決まる"
     writeTrace "startup" $workspace.TraceDir -Once
     writeTrace "search" $workspace.TraceDir
@@ -289,3 +325,9 @@ function finishSearch {
 # 検索結果を表に移す 1 回あたりの時間（ミリ秒）。タイマーの間隔（100 ミリ秒）より短くし、その間も画面が操作できるようにする
 ${searchPumpMilliseconds} = 60
 $script:searchTimer = newTimer 100 { safe { pumpSearch } }
+# 司令のスレッドが積む取り出しの仕事（requestSearchPump）。優先度は今のタイマーと同じ Background（入力と描画を先に回す）。
+# このファイルは画面のスレッドで読むので、CurrentDispatcher は画面のディスパッチャー。仕事は画面のスレッドで作り、画面のスレッドで動く
+$script:searchWake = New-Object System.Windows.Threading.DispatcherSynchronizationContext([System.Windows.Threading.Dispatcher]::CurrentDispatcher, [System.Windows.Threading.DispatcherPriority]::Background)
+$script:searchPumpCallback = [System.Threading.SendOrPostCallback] { param ($state) safe { pumpSearch $state } }
+# 窓を閉じたあと（closing.ps1 の Add_Closed）に立てる。積まれていた取り出しは何もしない
+$script:searchPumpClosed = $false

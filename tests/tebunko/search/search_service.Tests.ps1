@@ -199,6 +199,57 @@ Describe "invokeSearchRequest" -Tag Io {
     }
 }
 
+Describe "invokeSearchRequest（画面に取り出しを積む）" -Tag Io {
+    BeforeAll {
+        $tsvRoot = Join-Path $TestDrive "pump_tsv"
+        newTsv "$tsvRoot\A社.xlsx\Sheet1.tsv" @("単価`t105", "単価`t200")
+        newTsv "$tsvRoot\B社.xlsx\Sheet1.tsv" @("単価`t300")
+        $contentIndexRoot = Join-Path $TestDrive "pump_content_index"
+        [void](newContentIndexFiles $tsvRoot $contentIndexRoot)
+
+        # 画面のディスパッチャーの代わり。Post を呼ばれたときの列の件数と Finished・Narrowed を控え、印を偽に戻す（毎回積めるように）
+        function newRecordingWake {
+            $wake = [pscustomobject]@{ Calls = [System.Collections.ArrayList]::Synchronized((New-Object System.Collections.ArrayList)) }
+            $wake | Add-Member -MemberType ScriptMethod -Name Post -Value {
+                param ($callback, $state)
+                [void]$this.Calls.Add(@{ Count = $state.Queue.Count; Finished = [bool]$state.Finished; Narrowed = [bool]$state.Narrowed })
+                $state.PumpQueued = $false
+            }
+            return $wake
+        }
+    }
+
+    It "司令は、ヒットを列に入れたあとと終わったあとに、取り出しを積む" {
+        $request = newSearchRequest "単価" $true @($contentIndexRoot) 0
+        $wake = newRecordingWake
+        $request.Wake = $wake
+        $request.WakeCallback = [System.Threading.SendOrPostCallback] { param ($state) }
+        invokeSearchRequest $request
+        $calls = @($wake.Calls)
+        $calls.Count | Should -BeGreaterOrEqual 1
+        $calls[0].Count | Should -BeGreaterThan 0
+        $calls[-1].Finished | Should -Be $true
+        (takeHits $request).Count | Should -Be 3
+    }
+
+    It "前回の結果を使い回す検索も、終わったときに取り出しを積む" {
+        $narrowState = @{ Record = $null }
+        $first = newSearchRequest "単" $true @($contentIndexRoot) 100
+        invokeSearchRequest $first $null $null $narrowState
+        $first.Narrowed | Should -Be $false
+        $second = newSearchRequest "単価" $true @($contentIndexRoot) 100
+        $wake = newRecordingWake
+        $second.Wake = $wake
+        $second.WakeCallback = [System.Threading.SendOrPostCallback] { param ($state) }
+        invokeSearchRequest $second $null $null $narrowState
+        $calls = @($wake.Calls)
+        $calls.Count | Should -BeGreaterOrEqual 1
+        $calls[-1].Finished | Should -Be $true
+        $calls[-1].Narrowed | Should -Be $true
+        $calls[-1].Count | Should -Be 3
+    }
+}
+
 Describe "invokeSearchRequest（どの段で中止されても、先の段に進まない）" -Tag Io {
     BeforeDiscovery {
         # invokeSearchRequest が順に呼ぶ段。段を足したら（呼ぶ関数を足したら）ここに行を足し、下の Mock にも足す
@@ -258,6 +309,7 @@ Describe "invokeSearchRequest（どの段で中止されても、先の段に進
             tryNarrowSearch = "絞る段。列挙の後と選んだ後で自分で中止を見る（search_narrow.Tests.ps1）"
             updateSearchRecord = "最後まで終えた後に、次の要求のための記録を置き換えるだけ"
             setSearchResult = "searchContentIndex の結果を要求に入れるだけ（照合は終わっている）"
+            requestSearchPump = "画面に取り出しの仕事を Post で積むだけ（待たない）"
         }
         $parse = { param ($path) [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$null) }
         $defined = New-Object System.Collections.Generic.HashSet[string]

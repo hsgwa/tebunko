@@ -162,3 +162,49 @@ Describe "toResultCells" -Tag Unit {
         $cells[3] | Should -Be "5"
     }
 }
+
+Describe "requestSearchPump" -Tag Unit {
+    BeforeAll {
+        # 画面のディスパッチャーの代わり。Post を呼ばれた回数と引数を控える
+        function newFakeWake {
+            $wake = [pscustomobject]@{ Calls = New-Object System.Collections.Generic.List[object] }
+            $wake | Add-Member -MemberType ScriptMethod -Name Post -Value {
+                param ($callback, $state)
+                $this.Calls.Add(@($callback, $state))
+            }
+            return $wake
+        }
+    }
+
+    It "requestSearchPump は、印が偽なら真にして 1 回だけ Post する" {
+        $request = newSearchRequest "単価" $true @("x") 0
+        $wake = newFakeWake
+        $callback = [System.Threading.SendOrPostCallback] { param ($state) }
+        $request.Wake = $wake
+        $request.WakeCallback = $callback
+        requestSearchPump $request
+        $wake.Calls.Count | Should -Be 1
+        $request.PumpQueued | Should -Be $true
+        [object]::ReferenceEquals($wake.Calls[0][0], $callback) | Should -Be $true
+        [object]::ReferenceEquals($wake.Calls[0][1], $request) | Should -Be $true
+        requestSearchPump $request
+        requestSearchPump $request
+        $wake.Calls.Count | Should -Be 1
+    }
+
+    It "requestSearchPump は、文脈が無ければ何もしない" {
+        $request = newSearchRequest "単価" $true @("x") 0
+        $request.Wake | Should -BeNullOrEmpty
+        { requestSearchPump $request } | Should -Not -Throw
+        $request.PumpQueued | Should -Be $false
+    }
+
+    It "requestSearchPump は、積めなかった（ディスパッチャーが閉じた等）ときも例外を投げず、印を偽に戻す" {
+        $request = newSearchRequest "単価" $true @("x") 0
+        $wake = [pscustomobject]@{}
+        $wake | Add-Member -MemberType ScriptMethod -Name Post -Value { param ($callback, $state) throw "閉じた" }
+        $request.Wake = $wake
+        { requestSearchPump $request } | Should -Not -Throw
+        $request.PumpQueued | Should -Be $false
+    }
+}

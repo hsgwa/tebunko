@@ -1522,7 +1522,7 @@ Describe "pumpSearch（検索スレッドのヒットを見出しに取り込む
         $tokens = $null
         $errors = $null
         $ast = [System.Management.Automation.Language.Parser]::ParseFile("${scriptsDir}\tebunko\ui\search\search_session.ps1", [ref]$tokens, [ref]$errors)
-        $definitions = $ast.FindAll({ param ($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -in @("pumpSearch", "showSearchProgress") }, $true)
+        $definitions = $ast.FindAll({ param ($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -in @("pumpSearch", "takeSearchHits", "showSearchProgress") }, $true)
         foreach ($definition in $definitions) { . ([scriptblock]::Create($definition.Extent.Text)) }
         ${searchPumpMilliseconds} = 60000
         $script:searchService = [pscustomobject]@{}

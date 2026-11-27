@@ -129,7 +129,33 @@ function newSearchRequest {
         Queue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'
         Stop = $false; Finished = $false; Done = 0; Total = -1; IndexTotal = -1; Scanned = 0
         Truncated = $false; HitTotal = 0; CountTimeout = $false; OverflowDir = ""; OverflowFailed = $false; Cancelled = $false; Error = $null; Skipped = @()
+        # 画面に取り出しの仕事を積む口（requestSearchPump）。Wake は SynchronizationContext、WakeCallback はその仕事（SendOrPostCallback）。画面が入れる。
+        # PumpQueued は積んだ仕事がまだ動いていない印（重ねて積まない）
+        Wake = $null; WakeCallback = $null; PumpQueued = $false
     })
+}
+
+function requestSearchPump {
+    # 画面のディスパッチャーへ、検索結果の取り出しの仕事を 1 回だけ積む（司令のスレッドがヒットを列に入れたあと・終わったあと、
+    # 画面の取り出しが予算を使い切って残りがあるときに呼ぶ）。WM_TIMER を待つ DispatcherTimer だけに頼ると、UI オートメーションの問い合わせが
+    # 続いて WM_TIMER が来なくなったときに取り出しが止まるため。積むのは Post（.NET のメソッド）だけで、スクリプトブロックを画面のスレッドで呼ばない。
+    # 印は「列に入れる → 印が偽なら真にして積む」の順に見る。画面の取り出しは「印を偽にする → 列から取り出す」の順なので、積み漏れは起きない
+    # （重なっても、あとの仕事は空の列を見て戻るだけ）。文脈が無い要求（画面を通さない呼び方）では何もしない
+    param (
+        [hashtable]$request
+    )
+
+    $wake = $request.Wake
+    if ($null -eq $wake -or $request.PumpQueued) {
+        return
+    }
+    $request.PumpQueued = $true
+    try {
+        $wake.Post($request.WakeCallback, $request)
+    } catch {
+        # 積めなかった（ディスパッチャーが閉じた等）。司令は止めない。印を戻し、次に呼ばれたときに積み直す（画面のタイマーも拾う）
+        $request.PumpQueued = $false
+    }
 }
 
 function initSearchOverflow {
@@ -250,6 +276,7 @@ function invokeSearchRequestBody {
             # 数えている途中でも、上限を超えたことと今までの件数を画面に伝える
             $request.HitTotal = $hitTotal
             if ($request.Limit -gt 0 -and $hitTotal -gt $request.Limit) { $request.Truncated = $true }
+            requestSearchPump $request  # 進み具合まで書いてから積む（先に積むと、取り出しが 1 つ前の進み具合を表示したまま残る）
         } -stopSignal $request
         markTrace "search" "司令: searchContentIndex の終わり"
         setSearchResult $request $result
@@ -260,6 +287,8 @@ function invokeSearchRequestBody {
         $request.Error = $_.Exception.Message
     } finally {
         $request.Finished = $true
+        # 終わり（取り消し・失敗を含む）を画面に伝える。列に残った分の取り出しもここから始まる（前の結果を使い回す検索は途中で積まない）
+        requestSearchPump $request
     }
 }
 

@@ -182,6 +182,8 @@
 
     # 閉じると決まったあとに、画面のスレッドの分割（startUiWork）のタイマーを残さない。
     # Add_Closing に置かないのは、閉じるのを取りやめたとき（$e.Cancel = $true）に反映だけが止まるのを避けるため
+    # 検索の司令が積んでいた取り出し（requestSearchPump）も、閉じたあとは何もしない（pumpSearch が見る印）
     $window.Add_Closed({
+        $script:searchPumpClosed = $true
         try { stopAllUiWork } catch { Write-Debug "$_" }
     })
