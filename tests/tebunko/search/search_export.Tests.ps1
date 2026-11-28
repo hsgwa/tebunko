@@ -53,6 +53,35 @@ BeforeAll {
         return @($lines[0..($lines.Count - 2)] | ForEach-Object { , $_.Split($delimiter) })
     }
 
+    function script:newExportParts {
+        # 1 件ずつのヒットを、画面の getExportHits と同じ形（ファイルごとに @{ Runs; Order }）にする。
+        # reverse なら、ファイルの中を逆の順に書く番号（Order）を付ける。@{ Parts; Hits（同じ順の 1 件ずつの値）}
+        param ($hits, [bool]$reverse)
+        $parts = New-Object System.Collections.Generic.List[object]
+        $expected = New-Object System.Collections.Generic.List[object]
+        $groups = @($hits | Group-Object { "$($_.RelDir)\$($_.Book)" })
+        foreach ($group in $groups) {
+            $runs = New-Object System.Collections.Generic.List[object]
+            foreach ($hit in $group.Group) {
+                if ($runs.Count -eq 0 -or $runs[$runs.Count - 1].Location -cne $hit.Location) {
+                    $runs.Add(@{ Root = $hit.Root; RelPath = $hit.RelPath; RelDir = $hit.RelDir; FileName = $hit.FileName; Book = $hit.Book; Location = $hit.Location
+                        LineNumbers = New-Object System.Collections.Generic.List[int]; Lines = New-Object System.Collections.Generic.List[string] })
+                }
+                $runs[$runs.Count - 1].LineNumbers.Add([int]$hit.LineNumber)
+                $runs[$runs.Count - 1].Lines.Add($hit.Line)
+            }
+            $order = $null
+            $inFile = @($group.Group)
+            if ($reverse) {
+                $order = [int[]]@(($inFile.Count - 1)..0)
+                [array]::Reverse($inFile)
+            }
+            $parts.Add(@{ Runs = $runs.ToArray(); Order = $order })
+            $expected.AddRange([object[]]$inFile)
+        }
+        return @{ Parts = $parts.ToArray(); Hits = $expected.ToArray() }
+    }
+
     function script:assertSameRows {
         param ($actual, $expected)
         $actual.Count | Should -Be $expected.Count
@@ -103,6 +132,29 @@ Describe "結果のファイル出力" -Tag Io {
             assertSameRows (readExportRows $out $Format) (getReferenceRows $Format $expectedHits)
             [System.IO.File]::Exists("$out.new") | Should -BeFalse
             @(Get-ChildItem -LiteralPath (Join-Path (getSearchOverflowPidDir $own.TmpRoot) "export") -ErrorAction SilentlyContinue).Count | Should -Be 0
+        }
+
+        It "ファイルごとのまとまりで渡しても（<Name>）、1 件ずつの値をその順に渡したときと同じ行で書き、溢れも続ける" -ForEach @(
+            @{ Name = "見つかった順"; Reverse = $false }
+            @{ Name = "並べ替えた順（Order）"; Reverse = $true }
+        ) {
+            $own = newExportWorkspace "w-parts-$Reverse"
+            $dir = getSearchOverflowDir $own.TmpRoot 1
+            $result = searchContentIndex "多い" $contentIndexFiles $true 7 -workerCount 1 -overflowDir $dir
+            $parts = newExportParts $result.Hits $Reverse
+            $out = Join-Path $own.Dir "parts.csv"
+            $request = newExportRequest (newSource $own $result $dir) $out $parts.Parts "" "多い" "csv"
+            invokeSearchExport $request
+            $request.Outcome | Should -Be "Done"
+            $expectedOut = Join-Path $own.Dir "hits.csv"
+            $expectedRequest = newExportRequest (newSource $own $result $dir) $expectedOut $parts.Hits "" "多い" "csv"
+            invokeSearchExport $expectedRequest
+
+            $request.Written | Should -Be $expectedRequest.Written
+            $request.Scope | Should -Be "Overflow"
+            assertSameRows (readExportRows $out "csv") (readExportRows $expectedOut "csv")
+            # 並べ替えた順のときは、見つかった順と違う順で書いている（Order を当てている）
+            ($parts.Hits[0].Line -eq $result.Hits[0].Line) | Should -Be (!$Reverse)
         }
 
         It "<Format>: ファイルの先頭は BOM 付きの UTF-8 で、行の区切りは CRLF" -ForEach @(@{ Format = "csv" }, @{ Format = "tsv" }) {
