@@ -4440,7 +4440,7 @@
 </tr>
 <tr>
 <td><code>tests/helpers/load.ps1</code></td>
-<td><code>lib.ps1</code> を読む前に、変数が空なら使い捨てを入れる（<code>Invoke-Pester</code> を直接流したとき）。<code>initWorkspace</code> のあとで、決まったワークスペースが利用者の既定のワークスペースでないことを確かめる</td>
+<td><code>lib.ps1</code> を読む前に、変数が空なら使い捨てを入れる（<code>Invoke-Pester</code> を直接流したとき）。<code>initWorkspace</code> のあとで、決まったワークスペースが利用者の既定のワークスペースでないことと、使い捨ての中であること（<code>assertWorkspaceIsolated</code>。設定ファイルの <code>workspaceFolder</code> が外を指すと止まる）を確かめる</td>
 </tr>
 <tr>
 <td><code>tests/gui/gui_helpers.ps1</code></td>
