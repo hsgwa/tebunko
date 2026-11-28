@@ -280,6 +280,21 @@ Describe "removeStaleProcessDirs" -Tag Io {
         Test-Path -LiteralPath "$parent\1234567890" | Should -Be $true  # 10 桁はプロセスIDとみなさない
     }
 
+    It "keep_previous.txt のある終了済みプロセスの publish フォルダは消さず、黄色のログを出す。印の無いフォルダは消える" {
+        $parent = "$TestDrive\stale_keep"
+        $otherPid = $deadPid - 1
+        newTsv "$parent\$deadPid\import\previous\a.tsv" @("a")
+        newTsv "$parent\$deadPid\keep_previous.txt" @("$parent\$deadPid\import\previous")
+        newTsv "$parent\$otherPid\b.tsv" @("b")
+        Mock writeIndexerLog {}
+
+        removeStaleProcessDirs $parent $parent
+
+        Test-Path -LiteralPath "$parent\$deadPid\import\previous\a.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$parent\$otherPid" | Should -Be $false
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -ParameterFilter { $text -like "*元のインデックスを残したフォルダ*$deadPid*" -and $color -eq "Yellow" }
+    }
+
     It "削除できないフォルダは、原因をログに出して次回に回す" {
         $parent = "$TestDrive\stale_locked"
         newTsv "$parent\$deadPid\a.tsv" @("a")
