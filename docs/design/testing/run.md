@@ -38,13 +38,15 @@ flowchart LR
 | `tests/gui/gui_helpers.ps1` | 画面の起動の前に、差し替えた既定の場所が利用者の既定のワークスペースでないことを確かめ、画面のプロセスにだけ変数を渡す。前後の写しに既定のワークスペースを含める |
 | `runIndexer`（`tests/helpers/indexer.ps1`） | `indexer.ps1` を動かす前に、取り込みの出力先が使い捨ての中であることを確かめる |
 | `tools/capture_screens.ps1` | 撮る前に使い捨てを入れ、撮り終えたあとで既定のワークスペースの前後を比べる |
-| `tests/meta/test_isolation.Tests.ps1` | 上の仕組みが残っていること、`initWorkspace` や `workspaceFolder = ""` を差し替えずに使う書き方が決まったファイルの外に無いことを確かめる |
+| `tools/measure_perf.ps1`・`tools/perf/measure_ingest.ps1`・`tools/perf/measure_search.ps1`・`tools/convert_to_content_index.ps1` | `lib.ps1` を読む前に使い捨てを入れ、終わりに既定のワークスペースの前後を比べて、違いがあれば失敗にする。書き込み先の引数（`-Work`・`-Out`・`-Dest`）が既定のワークスペースの中か上なら、書く前に止める（`assertToolPathsNotRealWorkspace`） |
+| `tools/make_index_golden.ps1` | `lib.ps1` を読まないので差し替えは入れず、`-WorkspaceDir`・`-ExportZip`・`-SampleDir` が既定のワークスペースの中か上なら、書く前に止める |
+| `tests/meta/test_isolation.Tests.ps1` | 上の仕組みが残っていること（性能・変換・見本作りの道具の守りの順を含む）、`initWorkspace` や `workspaceFolder = ""` を差し替えずに使う書き方が決まったファイルの外に無いことを確かめる |
 
 実機で画面や取り込みを確かめるときは `tools/run_isolated.ps1` を通す。`%TEMP%` の下の新しいフォルダに `scripts\` と `tebunko.bat` の写し・`setting.config`（`-Settings` で指定）・使い捨てのワークスペースを作り、起動の前に設定ファイルの場所と `work` の場所が使い捨ての中であることを確かめてから起動する（外を指していれば起動しない）。画面を自動で確かめるときは `-WaitSeconds <秒>` で待つ秒数を指定する（過ぎても生きていれば、起動した PID とその子だけを止める。待つ前に 0 以外で終わると終了コード 1）。終わったら、既定のワークスペースと、リポジトリの `setting.config`・`work\` の前後を比べ、違いがあれば一覧を出して終了コード 1 にする。共通の関数は `tools/isolation/isolation_common.ps1`。
 
 前後の比べは、このプロセスの外が既定のワークスペースに書いた場合（利用者自身の操作・別の作業ツリーのテスト）も失敗にする。失敗したときは、一覧（名前・大きさ・更新時刻）の更新時刻を手がかりに、何が書いたかを確かめる。
 
-守りの限界: 既定のワークスペースの場所との同じ・下かどうかは、パスの文字で比べる。8.3 形式の短い名前・ジャンクション・`subst` で既定のワークスペースを指す場所は、事前の確かめでは見つけられない（流したあとの前後の比べが、書かれたことを見つける）。前後の比べはフォルダの更新時刻を比べないので、比べの間に作られて消えたもの（跡が残らないもの）は見つけられない。また `tools/perf/` など `run.ps1` や `run_isolated.ps1` を通らない道具は、この守りの外にある。
+守りの限界: 既定のワークスペースの場所との同じ・下かどうかは、パスの文字で比べる。8.3 形式の短い名前・ジャンクション・`subst` で既定のワークスペースを指す場所は、事前の確かめでは見つけられない（流したあとの前後の比べが、書かれたことを見つける）。前後の比べはフォルダの更新時刻を比べないので、比べの間に作られて消えたもの（跡が残らないもの）は見つけられない。また `tools/perf/` のうち上の表に無い道具（`measure_index`・`measure_typing`・`measure_preview`・`measure_export`・`measure_xlsx` など）は、単独で動かしたときの守りが無い（`measure_perf.ps1` の子として動くときは、親が入れた差し替えを引き継ぐ）。`lib.ps1` を読む `tools/` の道具は、守りを持つ一覧か除外の一覧（理由つき）のどちらかに載せる（`tests/meta/test_isolation.Tests.ps1` が、載っていない道具を見つけて落ちる）。
 
 入力と期待値だけが違うテストは、`-TestCases` の 1 つの `It` にまとめる（例: `tests/tebunko/ui/search/result_types.Tests.ps1` の `HitRow.MatchesFileName`）。表は `It` の中にそのまま書き、計算で作らない。キーには `input`・`args`・`_`・`Matches` など PowerShell の自動変数の名前を使わない。各行に `name` を持たせ、`It "<name>"` で失敗した行が分かるようにする。表の中で変数（`$stateDone` など）を使うときは、`BeforeDiscovery` で用意する（表はテストを探す段階で作られ、`BeforeAll` より先に評価されるため）。
 

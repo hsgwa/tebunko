@@ -30,6 +30,22 @@ function assertNotRealWorkspace {
     }
 }
 
+function assertToolPathsNotRealWorkspace {
+    # 道具の引数（名前 → パス）のどれかが、利用者の既定のワークスペースと同じか、その下・上を指していれば、その引数の名前を出して例外にする。
+    # 空・未指定の引数は飛ばす（既定値を使う引数）。書く前に呼ぶ
+    param ([System.Collections.IDictionary]$Paths, [string]$Real = (getRealDefaultWorkspace))
+
+    foreach ($name in $Paths.Keys) {
+        $path = [string]$Paths[$name]
+        if ([string]::IsNullOrWhiteSpace($path)) { continue }
+        try {
+            assertNotRealWorkspace $path $Real
+        } catch {
+            throw "-${name} が利用者の既定のワークスペースを指しています（書き込まずに止めました）: $path"
+        }
+    }
+}
+
 function newIsolatedFolder {
     # 一時フォルダの下に新しい使い捨てのフォルダを作って、そのパスを返す
     param ([string]$Prefix = "tebunko-isolated")
