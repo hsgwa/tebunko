@@ -1,0 +1,37 @@
+# 編集の道具に文字コードと改行を伝える。正本は .gitattributes と AGENTS.md（tests/meta/encoding.Tests.ps1 が食い違いを確かめる）
+root = true
+
+[*]
+charset = utf-8
+
+[*.ps1]
+charset = utf-8-bom
+end_of_line = crlf
+
+[*.xaml]
+charset = utf-8-bom
+end_of_line = crlf
+
+[*.bat]
+charset = utf-8-bom
+end_of_line = crlf
+
+[*.iss]
+charset = utf-8-bom
+end_of_line = crlf
+
+[*.cs]
+charset = utf-8-bom
+end_of_line = crlf
+
+[scripts/tebunko/startup/*.txt]
+charset = utf-8-bom
+end_of_line = crlf
+
+[tools/hooks/*]
+charset = utf-8
+end_of_line = lf
+
+[tests/testdata/compat/**]
+charset = unset
+end_of_line = unset
