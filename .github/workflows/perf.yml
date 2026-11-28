@@ -9,6 +9,12 @@
 # Excel の流れ読み（入力 xlsx が 0 でないとき）は、ブックをその場で ZIP から組み立て（Office は使わない）、readXlsxObjectUnits の時間を測る。直す前と後の ref を、同じ形で測って比べる。
 # 検索結果の書き出し（入力 export が 0 でないとき）は、合成のヒット 1 万件を Excel ブック・CSV・TSV に書き出す部分（invokeSearchExport）の時間を測る。直す前と後の ref を、同じ形で測って比べる。
 # 入力しながらの検索（入力 typing が 0 でないとき）は、語を typing_min_length 文字目から 1 文字ずつ、決まった間隔で検索の司令のスレッドへ送って測る。
+# 前と後の比べ（入力 base_ref が空でないとき）は、base_ref を base のフォルダにもチェックアウトし、今の「計測する」の代わりに tools/perf/measure_compare.ps1 で、
+# 同じジョブの中で前と後の検索を rounds 組、交互に測る（取り込み・Excel・書き出し・入力しながらの検索は測らない）。結果は compare.md・compare.json。
+# 散らばる語（入力 scattered が 1 のとき）は、場所ごとに 1 件ずつ散らばる語のデータ（19 ファイル × 500 場所。9,500 件）を tools/perf/new_scattered_data.ps1 で別の置き場に作って測り、
+# PSCustomObject 1 万件を作る時間（tools/perf/measure_hit_objects.ps1。結果は hit_objects.md・hit_objects.json）も測る。base_ref が空なら、散らばる語は ref だけを 1 回測る。
+#   gh workflow run perf.yml -f ref=<後の ref> -f base_ref=<前の ref> -f scale=0.04 -f count=5 -f rounds=5 -f scattered=1
+# ref・base_ref にコミットを渡すときは 40 桁で書く（短い番号は actions/checkout で取れず、チェックアウトの段で止まる）。ブランチ・タグはそのまま書ける。
 # ランナーは手元の PC と条件が違う（コア数、Defender の設定）。比べるときは、このワークフローで測った数字どうしで比べる。
 # run の中は ASCII だけで書く（Windows PowerShell 5.1 は BOM の無いスクリプトを ANSI として読むため。日本語は計測スクリプトの側で出力する）。
 name: perf
@@ -17,7 +23,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 測る ref（ブランチ・タグ・コミット）
+        description: 測る ref（ブランチ・タグ・コミット。コミットは 40 桁で書く。短い番号はチェックアウトで取れない）
         required: true
         default: main
       scale:
@@ -53,13 +59,27 @@ on:
         type: choice
         options: ["3", "1"]
         default: "3"
+      base_ref:
+        description: 比べる前の ref（空なら ref だけを今までどおり測る。指定すると、同じジョブの中で前と後の検索を交互に測る。取り込み・Excel・書き出し・入力しながらの検索は測らない。コミットは 40 桁で書く）
+        required: false
+        default: ""
+      rounds:
+        description: base_ref があるとき、前 → 後 を交互に測る組の数
+        type: choice
+        options: ["3", "5"]
+        default: "5"
+      scattered:
+        description: 場所ごとに 1 件ずつ散らばる語（9,500 件）のデータも作って測り、PSCustomObject 1 万件を作る時間も測る（1 で測る）
+        type: choice
+        options: ["0", "1"]
+        default: "0"
 
 permissions:
   contents: read
 
-# 同じ ref で続けて起動したときは、前の実行を取り消さず、終わるのを待つ
+# 同じ ref（と同じ前の ref）で続けて起動したときは、前の実行を取り消さず、終わるのを待つ。前と後の組が違う起動は互いに待たせない
 concurrency:
-  group: perf-${{ inputs.ref }}
+  group: perf-${{ inputs.ref }}-${{ inputs.base_ref }}
   cancel-in-progress: false
 
 env:
@@ -84,6 +104,14 @@ jobs:
           path: target
           persist-credentials: false
 
+      - name: 前の ref の計測対象のコードをチェックアウトする
+        if: ${{ inputs.base_ref != '' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.base_ref }}
+          path: base
+          persist-credentials: false
+
       - name: データ生成スクリプトをチェックアウトする
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -105,7 +133,7 @@ jobs:
           [System.IO.File]::WriteAllText((Join-Path $work "data_seconds.txt"), $watch.Elapsed.TotalSeconds.ToString([System.Globalization.CultureInfo]::InvariantCulture))
 
       - name: 取り込みのデータを生成する
-        if: ${{ inputs.ingest != '0' }}
+        if: ${{ inputs.ingest != '0' && inputs.base_ref == '' }}
         shell: powershell
         env:
           INGEST: ${{ inputs.ingest }}
@@ -115,7 +143,17 @@ jobs:
           & .\tool\tools\perf\new_ingest_data.ps1 -Dest (Join-Path $work "office") -Source .\tool\tests\testdata\office -Docx ([int]$env:INGEST) -Pptx ([int]$env:INGEST)
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
+      - name: 散らばる語のデータを生成する
+        if: ${{ inputs.scattered == '1' }}
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $work = Join-Path $env:RUNNER_TEMP "perf"
+          & .\tool\tools\perf\new_scattered_data.ps1 -Dest (Join-Path $work "scattered\tsv") -Words (Join-Path $work "scattered\words.tsv")
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
       - name: 計測する
+        if: ${{ inputs.base_ref == '' }}
         shell: powershell
         env:
           INGEST: ${{ inputs.ingest }}
@@ -143,6 +181,47 @@ jobs:
           if ($env:TYPING -ne "0") { $typing.Typing = [int]$env:TYPING; $typing.TypingMinLength = [int]$env:TYPING_MIN_LENGTH }
           & .\tool\tools\measure_perf.ps1 @office @xlsx @export @typing -Index (Join-Path $work "store\content\perfdata") -Work $work -Tool target -Words perfdata\words.tsv -Count ([int]$env:COUNT) -Label "$env:REF ($short) scale $env:SCALE" -RunId $env:RUN_ID -Ref $env:REF -Sha $sha -Scale $env:SCALE -DataSeconds $data -Out (Join-Path $work "result")
 
+      - name: 前と後を比べて測る
+        if: ${{ inputs.base_ref != '' || inputs.scattered == '1' }}
+        shell: powershell
+        env:
+          BASE_REF: ${{ inputs.base_ref }}
+          REF: ${{ inputs.ref }}
+          ROUNDS: ${{ inputs.rounds }}
+          SCATTERED: ${{ inputs.scattered }}
+          SCALE: ${{ inputs.scale }}
+          COUNT: ${{ inputs.count }}
+          RUN_ID: ${{ github.run_id }}
+          INGEST: ${{ inputs.ingest }}
+          XLSX: ${{ inputs.xlsx }}
+          EXPORT: ${{ inputs.export }}
+          TYPING: ${{ inputs.typing }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $work = Join-Path $env:RUNNER_TEMP "perf"
+          if ($env:BASE_REF -ne "") {
+            foreach ($name in @("INGEST", "XLSX", "EXPORT", "TYPING")) {
+              if ((Get-Item "env:$name").Value -ne "0") { Write-Warning "base_ref is set: input $($name.ToLower()) is ignored (the comparison measures search only)." }
+            }
+          }
+          $sides = @{ TargetTool = "target"; TargetRef = $env:REF; Rounds = 1 }
+          if ($env:BASE_REF -ne "") {
+            $sides.BaseTool = "base"; $sides.BaseRef = $env:BASE_REF; $sides.Rounds = [int]$env:ROUNDS
+            $sides.PerfdataIndex = Join-Path $work "store\content\perfdata"; $sides.PerfdataWords = "perfdata\words.tsv"
+          }
+          if ($env:SCATTERED -eq "1") { $sides.ScatteredIndex = Join-Path $work "scattered\tsv"; $sides.ScatteredWords = Join-Path $work "scattered\words.tsv" }
+          & .\tool\tools\perf\measure_compare.ps1 @sides -Count ([int]$env:COUNT) -RunId $env:RUN_ID -Scale $env:SCALE -Work (Join-Path $work "compare") -Out (Join-Path $work "result")
+
+      - name: PSCustomObject 1 万件を作る時間を測る
+        if: ${{ inputs.scattered == '1' }}
+        shell: powershell
+        env:
+          COUNT: ${{ inputs.count }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tool\tools\perf\measure_hit_objects.ps1 -Hits 10000 -Repeat ([int]$env:COUNT) -Out (Join-Path $env:RUNNER_TEMP "perf\result")
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
       - name: 結果を Summary に書き出す
         if: always()
         shell: powershell
@@ -150,6 +229,12 @@ jobs:
           $summary = Join-Path $env:RUNNER_TEMP "perf\result\summary.md"
           if (Test-Path -LiteralPath $summary) {
             [System.IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, [System.IO.File]::ReadAllText($summary, [System.Text.Encoding]::UTF8), (New-Object System.Text.UTF8Encoding($false)))
+          }
+          foreach ($name in @("compare.md", "hit_objects.md")) {
+            $part = Join-Path $env:RUNNER_TEMP "perf\result\$name"
+            if (Test-Path -LiteralPath $part) {
+              [System.IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, "`n" + [System.IO.File]::ReadAllText($part, [System.Text.Encoding]::UTF8), (New-Object System.Text.UTF8Encoding($false)))
+            }
           }
 
       - name: 結果を artifact にアップロードする

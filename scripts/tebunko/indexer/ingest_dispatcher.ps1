@@ -104,30 +104,28 @@ class IngestDispatcher {
         return $false
     }
 
-    [object] TakeAbandonedWorker() {
-        # 諦めたのに、まだ後回しを済ませていないワーカーがあれば、そのワーカーで取り込み中だったファイルを取り込み中から外して返す。
+    [object[]] TakeAbandonedWorker() {
+        # 諦めたのに、まだ後回しを済ませていないワーカー全部について、取り込み中だったファイルを取り込み中から外し、後回しの値の並びで返す。
         # 固まった呼び出しは戻らないことがあるため結果を待たない（戻ってきた結果は Receive が捨てる）。
-        # @{ Worker（ワーカーの番号）; Entries（取り込み中の記録 @{ Row; Count; Folder; Number; App; Worker; Task } の並び） }。無ければ $null
+        # 値は completeIngestJob がそのまま受け取れる @{ Kind = "Postponed"; Entry（取り込み中の記録 @{ Row; Count; Folder; Number; App; Worker; Task }）; Reason }。無ければ空の並び
+        $postponed = New-Object System.Collections.Generic.List[object]
         if (!$this.Pool) {
-            return $null
+            return $postponed.ToArray()
         }
-        $index = $this.unhandledAbandonedWorker()
-        if ($index -lt 0) {
-            return $null
-        }
-        $slot = $this.Pool.Slots[$index]
-        $slot.State.Handled = $true
-        $entries = New-Object System.Collections.Generic.List[object]
-        foreach ($relPath in @($this.Inflight.Keys)) {
-            $entry = $this.Inflight[$relPath]
-            if ($entry.Worker -ne $index) {
-                continue
+        while (($index = $this.unhandledAbandonedWorker()) -ge 0) {
+            $slot = $this.Pool.Slots[$index]
+            $slot.State.Handled = $true
+            foreach ($relPath in @($this.Inflight.Keys)) {
+                $entry = $this.Inflight[$relPath]
+                if ($entry.Worker -ne $index) {
+                    continue
+                }
+                [void]$this.Inflight.Remove($relPath)
+                $slot.Busy = $slot.Busy - 1
+                $postponed.Add(@{ Kind = "Postponed"; Entry = $entry; Reason = $this.Options.PostponedReasonInUse })
             }
-            [void]$this.Inflight.Remove($relPath)
-            $slot.Busy = $slot.Busy - 1
-            $entries.Add($entry)
         }
-        return @{ Worker = $index; Entries = $entries.ToArray() }
+        return $postponed.ToArray()
     }
 
     [void] BeginPass() {
@@ -139,10 +137,11 @@ class IngestDispatcher {
 
     [object] DispatchNext() {
         # 次に渡すファイルを 1 つ決め、結果を返す。回の終わりは $null。結果の Kind:
-        #   Abandoned  … 諦めたワーカーのアプリのファイル。渡さずに「未取り込み」のまま残す（司令が後回しとして記録する）
+        #   Postponed  … 諦めたワーカーのアプリのファイル。渡さずに「未取り込み」のまま残す（司令が completeIngestJob に渡して記録する）。
+        #                @{ Kind; Entry = @{ Row; Number; Folder }; Reason; Undispatched = $true }
         #   Vanished   … 取り込む直前に元のファイルが無くなっていた（司令が一覧・インデックスから除く）
         #   Dispatched … 取り込みに渡す（司令が記録してから Submit する）
-        # どれも @{ Kind; Number; Row; RelPath; BookFolder; Worker; Task }（Kind によっては一部だけ）。
+        # Postponed 以外は @{ Kind; Number; Row; RelPath; BookFolder; Worker; Task }（Kind によっては一部だけ）。
         # クロール対象フォルダごと見えなくなったときは FolderLost に入れて回を終える
         while (!$this.Stopped -and !$this.FolderLost -and $this.Cursor -lt $this.Limit) {
             $i = $this.Cursor
@@ -160,7 +159,10 @@ class IngestDispatcher {
                     # 諦めたワーカーのアプリのファイルは、渡さずに「未取り込み」のまま残す
                     $this.Dispatched[$i] = $true
                     $this.Undispatched = $this.Undispatched - 1
-                    return @{ Kind = "Abandoned"; Number = $i + 1; Row = $row; BookFolder = $bookFolder }
+                    return @{
+                        Kind = "Postponed"; Entry = @{ Row = $row; Number = $i + 1; Folder = $bookFolder }
+                        Reason = $this.Options.PostponedReasonInUse; Undispatched = $true
+                    }
                 }
                 if ($pick.Kind -eq "Wait") {
                     continue
