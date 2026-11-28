@@ -4383,6 +4383,7 @@
         I--&gt;&gt;G: 終了
     end
     G-&gt;&gt;S: 検索を取り消す
+    G-&gt;&gt;G: 設定ファイル・取り込み一覧の見張りを閉じる（closeFileWatches）
     G-&gt;&gt;G: closeTimer・インデックス作成のタイマーを止める
     G-&gt;&gt;I: IndexingSession.Close
     G-&gt;&gt;S: 検索の司令（照合のプール）を閉じる
@@ -4391,6 +4392,7 @@
     G-&gt;&gt;G: 画面のスレッドの Dispatcher を止める
     G-&gt;&gt;U: 閉じる</code></pre>
 <ul>
+<li><strong>設定ファイルと取り込み一覧の見張り（<code>FileSystemWatcher</code>）は、<code>Closing</code> の流れで 1 回、<code>Closing</code> を通らずに終わる場合のため後始末の <code>finally</code>（裏の列を <code>Abandon</code> する段の前）でもう 1 回閉じる</strong>（<code>closeFileWatches</code>。2 回呼んでも失敗しない）。</li>
 <li>確認の選択肢は［中止して閉じる］と［閉じない］だけである。インデックス作成を続けたまま画面を閉じることはできない。確認している間にインデックス作成が終わっていれば、そのまま閉じる。</li>
 <li>Office が固まってインデクサが戻らないときは、まず監視が制限時間で Office を止める。画面は 60 秒待っても終わらなければ、インデックス作成が起動した Office を PID で止め（<code>IndexingSession.KillOffice</code>）、さらに 15 秒待つ。それでも終わらなければ、そのまま閉じる（スレッドは <code>IndexingSession.Close</code> で止める）。</li>
 <li>止めるのは、インデックス作成が起動して PID を記録した Office（<code>OfficePids</code>）だけである。PID が別のプロセスに使い回されていないよう、止める前に記録したプロセス名と起動時刻が同じか確かめる（<code>isSameOfficeProcess</code>。起動時刻が読めないものは止めない）。利用者が開いていた Office は止めない。取り込み中に利用者が窓を開いた PowerPoint（<code>UserOfficePids</code> に印がある、または今見える窓がある）も止めない。</li>
