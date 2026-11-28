@@ -282,7 +282,7 @@ content_index/<相対フォルダ>/content_index.<拡張子>.<番号>.tsv … �
 10. 2-gram の索引は、インポートでは作らず、次のインデックス作成に任せる（下の「2-gram の索引を作る時機」）。
 11. 作業フォルダを消す。
 
-**戻し方**: 7〜9 のどこかで失敗したら、逆の操作で戻して例外にする（戻しは対になる関数 `restoreImportedSettings`・`restoreSwappedIndexDir` が行い、`importIndexCore` は入れ子の `try` の順に呼ぶ）。設定は、変える 3 つの項目（`targetFolders`・`indexSources`・`searchExcludes`）を、登録の前に読んだ値にそのまま書き戻す（並びも元のまま。ほかの項目には触れない）。`store\content\<名前>\` は退避した `previous\` を戻す（新しく足したときは消す）。取り込み一覧は一時ファイルからの置き換えなので、失敗すれば前のまま。どの段階で失敗しても、作業フォルダ（`import\`）は消す。`tests/tebunko/index/index_archive.Tests.ps1` の「戻す」で、設定に書けない・入れ替えられない・取り込み一覧を書けない、のそれぞれを確かめている。
+**戻し方**: 7〜9 のどこかで失敗したら、逆の操作で戻して例外にする（戻しは対になる関数 `restoreImportedSettings`・`restoreSwappedIndexDir` が行い、`importIndexCore` は入れ子の `try` の順に呼ぶ）。設定は、変える 3 つの項目（`targetFolders`・`indexSources`・`searchExcludes`）を、登録の前に読んだ値にそのまま書き戻す（並びも元のまま。ほかの項目には触れない）。`store\content\<名前>\` は退避した `previous\` を戻す（新しく足したときは消す）。取り込み一覧は一時ファイルからの置き換えなので、失敗すれば前のまま。どの段階で失敗しても、作業フォルダ（`import\`）は消す。ただし、**退避した `previous\` を戻せなかったとき**（戻す移動が偽・例外になる、または新しく入れたフォルダを消せない）は、元のインデックスを失わないよう、`previous\` を消さずに残す（`throwSwapRestoreFailed`）。例外の `Data["KeepPrevious"]` に `previous\` のパスを入れ、`importIndexCore` の片付け（`removeImportWorkDirKeeping`）が `previous\` 以外を消し、`publish\<PID>\keep_previous.txt`（1 行目に残した場所）を置く。この印のあるフォルダは、終了済みのプロセスの片付け（`removeStaleProcessDirs`）も消さずに黄色のログで知らせ、同じ PID の次の取り込みは、始めに印を見つけると何も消さずに止まる（`assertNoKeptPrevious`）。利用者が `previous\` を手で `store\content\<名前>\` に戻してから、印のファイルを消す。メッセージは [画面に出す文言（インデックスの操作）](../gui/messages-index-ops.md)。`tests/tebunko/index/index_archive.Tests.ps1` の「戻す」で、設定に書けない・入れ替えられない・取り込み一覧を書けない、のそれぞれと、戻す移動そのものが失敗したときに `previous\` が残ることを確かめている。
 
 **強制終了したとき**:
 

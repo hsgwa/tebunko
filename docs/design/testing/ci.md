@@ -107,7 +107,7 @@ test・title・docs・codeql・perf-check の 5 つのワークフローは、�
 - **perf-check は `search`・`ingest` の 2 つのジョブの結果をまとめる。** カンマ区切りで両方の結果を渡し、悪いほうの結果（`failure` > `cancelled` > `skipped` > `success`）を 1 件のコメントにする。数字（検索・pack の作成・取り込みの速さ）はここに書き写さず、ジョブの Summary で見る
 - **perf-check は、`search`・`ingest` の両方がスキップのとき（`perf-check` のラベルが無いとき・`perf-check` 以外のラベルを付けて起動した実行）は書かない。** 書くのは、どちらかが動いたときだけ。書くと前の結果（失敗など）が「スキップ」に書き換わるため。ラベルを外したあとは、前の結果のコメントが残る（対象のコミットで見分ける）
 - **`pr-comment` ジョブの条件は `!cancelled()`。** 取り消された実行はコメントを書き換えない（古い実行が新しい結果を消さないため）。前段のジョブが失敗・スキップのときは書く（perf-check の両方スキップを除く）
-- **`title.yml` は PR・Issue ごとに順に動かす（`concurrency`。グループは `title-<番号>`、`cancel-in-progress: false`）。** `opened` と `edited` が同時に動いて Issue のコメントが 2 件できるのを防ぐ。実行中のものは取り消さないが、待ちに入れるのは 1 本だけなので、続けて編集・push すると、待っていた古い実行は取り消される（最新の実行は必ず動く。head に「取り消し」の `pr-title` が一時的に見えることがある）
+- **`title.yml` は PR・Issue ごとに 1 本だけ動かす（`concurrency`。グループは `title-<番号>`）。** PR は `cancel-in-progress: true` で、続けて編集・push すると、動いている古い実行を取り消して最新の実行がすぐ動く（古い実行の `pr-comment` の終わりまで待たない。取り消された実行はコメントを書かない。head に「取り消し」の `pr-title` が一時的に見えることがある）。Issue は `cancel-in-progress: false` で、`opened` と `edited` が同時に動いてコメントが 2 件できるのを防ぐ（実行中のものは取り消さず、待ちに入れるのは 1 本だけ）
 - **コメントには、PR の head のコミットを短い形で添える。** 遅れて終わった古い実行が新しい結果を上書きしたときに見分けるため
 - **Dependabot の PR にはコメントしない。** PR の作者（`github.event.pull_request.user.login`）が `dependabot[bot]` の実行は対象から外す
 - `release.yml` は `test.yml` を `workflow_call` で呼ぶ。呼ばれる側の `pr-comment` ジョブが `pull-requests: write` を求めるため、呼ぶ側の `test` ジョブにも同じ許可を付けてある（足りないと、ワークフローが不正として起動せず、タグを打っても release が動かない）。タグの push では `pr-comment` 自体はスキップされる
@@ -173,6 +173,8 @@ git push origin v0.1.0
 - 手元で見るときは次のとおり（生成物は `work/site/`）
 
 ```
-pip install --require-hashes -r tools/mkdocs/requirements.txt
-mkdocs serve -f tools/mkdocs/mkdocs.yml
+.\tools\setup_dev.ps1    # work/mkdocs-venv を作り、requirements.txt を入れる（1 回）
+work\mkdocs-venv\Scripts\mkdocs serve -f tools/mkdocs/mkdocs.yml
 ```
+
+`tools/setup_dev.ps1` は上の `pip install --require-hashes -r tools/mkdocs/requirements.txt` を `work/mkdocs-venv` の中で行う。
