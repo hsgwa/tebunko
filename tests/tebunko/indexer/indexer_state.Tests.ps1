@@ -537,3 +537,56 @@ Describe "readPendingRemovals / writePendingRemovals" -Tag Io {
         $read[0].Name | Should -Be "ok.xlsx"
     }
 }
+
+Describe "getIndexingStateIfChanged" -Tag Unit {
+    BeforeEach {
+        $script:statusFile = Join-Path $TestDrive ("status-" + [guid]::NewGuid().ToString("N") + ".tsv")
+        Set-Content -LiteralPath $script:statusFile -Value "a"
+        $script:stamp = getFileStamp $script:statusFile
+        Mock getIndexingState { return @{ Total = 3 } }
+        Mock getWorkspaceIndexFormat { return "FORMAT" }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "飛ばす指定で印が同じなら、集計せず Unchanged を返す"; skip = $true; last = "same"; unchanged = $true; calls = 0 }
+        @{ name = "飛ばす指定でも印が違えば集計する"; skip = $true; last = "other"; unchanged = $false; calls = 1 }
+        @{ name = "飛ばす指定が無ければ（前面復帰以外の呼び元）、印が同じでも集計する"; skip = $false; last = "same"; unchanged = $false; calls = 1 }
+        @{ name = "前回の印が空（ワークスペースの切り替え直後）なら集計する"; skip = $true; last = ""; unchanged = $false; calls = 1 }
+    ) {
+        $lastStamp = if ($last -eq "same") { $script:stamp } else { $last }
+        $result = getIndexingStateIfChanged -Path $script:statusFile -WorkspaceDir $TestDrive -LastStamp $lastStamp -SkipIfUnchanged:$skip
+        [bool]$result.Unchanged | Should -Be $unchanged
+        $result.Stamp | Should -Be $script:stamp
+        $result.Format | Should -Be "FORMAT"
+        Should -Invoke getIndexingState -Times $calls -Exactly
+        Should -Invoke getWorkspaceIndexFormat -Times 1 -Exactly
+    }
+
+    It "集計したときは getIndexingState の結果に印を付けて返す" {
+        $result = getIndexingStateIfChanged -Path $script:statusFile -WorkspaceDir $TestDrive
+        $result.Total | Should -Be 3
+    }
+}
+
+Describe "getIndexingStateIfChanged（裏の仕事と同じく lib.ps1 だけを読んだ Runspace）" -Tag Io {
+    It "getIndexingStateIfChanged と getFileStamp が呼べる" {
+        $file = Join-Path $TestDrive "status_bg.tsv"
+        Set-Content -LiteralPath $file -Value "a"
+        $lib = "${scriptsDir}\tebunko\lib.ps1"
+        $ps = [powershell]::Create()
+        try {
+            $ps.AddScript({
+                param ($lib, $file, $dir)
+                . $lib
+                $stamp = getFileStamp $file
+                $r = getIndexingStateIfChanged -Path $file -WorkspaceDir $dir -LastStamp $stamp -SkipIfUnchanged
+                "$stamp|$($r.Unchanged)"
+            }).AddArgument($lib).AddArgument($file).AddArgument($TestDrive) | Out-Null
+            $out = @($ps.Invoke())
+            $ps.HadErrors | Should -BeFalse
+            $out[0] | Should -Match '\|True$'
+        } finally {
+            $ps.Dispose()
+        }
+    }
+}
