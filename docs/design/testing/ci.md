@@ -107,7 +107,7 @@ test・title・docs・codeql・perf-check の 5 つのワークフローは、�
 - **perf-check は `search`・`ingest` の 2 つのジョブの結果をまとめる。** カンマ区切りで両方の結果を渡し、悪いほうの結果（`failure` > `cancelled` > `skipped` > `success`）を 1 件のコメントにする。数字（検索・pack の作成・取り込みの速さ）はここに書き写さず、ジョブの Summary で見る
 - **perf-check は、`search`・`ingest` の両方がスキップのとき（`perf-check` のラベルが無いとき・`perf-check` 以外のラベルを付けて起動した実行）は書かない。** 書くのは、どちらかが動いたときだけ。書くと前の結果（失敗など）が「スキップ」に書き換わるため。ラベルを外したあとは、前の結果のコメントが残る（対象のコミットで見分ける）
 - **`pr-comment` ジョブの条件は `!cancelled()`。** 取り消された実行はコメントを書き換えない（古い実行が新しい結果を消さないため）。前段のジョブが失敗・スキップのときは書く（perf-check の両方スキップを除く）
-- **`title.yml` は PR・Issue ごとに順に動かす（`concurrency`。グループは `title-<番号>`、`cancel-in-progress: false`）。** `opened` と `edited` が同時に動いて Issue のコメントが 2 件できるのを防ぐ。実行中のものは取り消さないが、待ちに入れるのは 1 本だけなので、続けて編集・push すると、待っていた古い実行は取り消される（最新の実行は必ず動く。head に「取り消し」の `pr-title` が一時的に見えることがある）
+- **`title.yml` は PR・Issue ごとに 1 本だけ動かす（`concurrency`。グループは `title-<番号>`）。** PR は `cancel-in-progress: true` で、続けて編集・push すると、動いている古い実行を取り消して最新の実行がすぐ動く（古い実行の `pr-comment` の終わりまで待たない。取り消された実行はコメントを書かない。head に「取り消し」の `pr-title` が一時的に見えることがある）。Issue は `cancel-in-progress: false` で、`opened` と `edited` が同時に動いてコメントが 2 件できるのを防ぐ（実行中のものは取り消さず、待ちに入れるのは 1 本だけ）
 - **コメントには、PR の head のコミットを短い形で添える。** 遅れて終わった古い実行が新しい結果を上書きしたときに見分けるため
 - **Dependabot の PR にはコメントしない。** PR の作者（`github.event.pull_request.user.login`）が `dependabot[bot]` の実行は対象から外す
 - `release.yml` は `test.yml` を `workflow_call` で呼ぶ。呼ばれる側の `pr-comment` ジョブが `pull-requests: write` を求めるため、呼ぶ側の `test` ジョブにも同じ許可を付けてある（足りないと、ワークフローが不正として起動せず、タグを打っても release が動かない）。タグの push では `pr-comment` 自体はスキップされる
@@ -143,7 +143,7 @@ sequenceDiagram
 - zip にはツール本体（`tebunko.bat`・`scripts/`）と `README.md`・`LICENSE`・`VERSION.txt`（版とコミットの記録）だけを入れる。README の相対リンクと画像は、その版の GitHub の URL に書き換える。カタログ（`tebunko.cat`）・ハッシュ一覧（`SHA256SUMS.txt`）・部品表（`sbom.cdx.json`。配布物を作るたびに zip の中身から作る）は zip と並べてリリースに載せ（[安全性の要約](../../safety/index.md) の [配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](../../safety/scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)）、SECURITY は README とリリースの説明からリンクする。zip 自体の SHA256 はリリースの説明に書く（同 [複数エンジンでの検査: VirusTotal（外部へファイルを送信する）](../../safety/scans.md#複数エンジンでの検査-virustotal外部へファイルを送信する) の VirusTotal での照会用）
 - 配布物を作った後、来歴に署名する前に、`tools/check_release_package.ps1` が zip の中身（ファイルの過不足・dot-source の先・構文・カタログ・ハッシュ一覧・部品表・`VERSION.txt`）を確かめる。通らなければ、署名も公開も行わない。公開する zip は変更の無い作業ツリーで作る（CI の checkout はそうなっている）
 - インストーラーは Inno Setup 7 で作る（6.7.1 は、Program Files に入れたものを消すとアンインストーラーが残ったため 7.1.0 にした）。Inno Setup は版を固定して公式のリリースから取り、SHA256 を確かめてから、持ち運び版（レジストリに書かない）でランナーの一時フォルダに入れる（`tools/install_inno_setup.ps1`。日本語のメッセージが要るため、`shell: powershell` の `run` から呼ぶ tools の側に置く。上の「ASCII だけで書く」）。版を上げるときは `release.yml` の URL と SHA256 を一緒に直す（Dependabot の対象外）。インストーラーの SHA256 もリリースの説明に書く
-- zip とインストーラーのビルドの来歴を Sigstore で署名して GitHub に登録し、署名の bundle（`tebunko-<タグ>.zip.sigstore.json`・`tebunko-setup-<タグ>.exe.sigstore.json`）もリリースに載せる（同 [配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](../../safety/scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)）
+- zip とインストーラーのビルドの来歴を Sigstore で署名して GitHub に登録し、署名の bundle（`tebunko-<タグ>.zip.sigstore.json`・`tebunko-setup-<タグ>.exe.sigstore.json`）もリリースに載せる。カタログ・ハッシュ一覧・部品表の来歴も 1 つの bundle（`tebunko-<タグ>.release-files.sigstore.json`）にして載せる（同 [配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](../../safety/scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)）
 - リリースノートは GitHub が PR から作り、`.github/release.yml` で PR のラベルごとに分ける
 - 版の付け方とリリースの時機は AGENTS.md の「リリース」に従う。タグは main のコミットに付ける
 - **タグを打たずに手動（`workflow_dispatch`）でも起動できる。** 配布物を作る・検査するところまでは同じに動かすが、`guard` のタグの形の確認と、来歴への署名・GitHub Release への公開は行わない（起動したブランチの名は版の形にならないため）。代わりに、作った zip・インストーラー・カタログ・ハッシュ一覧・部品表を artifact `release-dry-run-<実行の番号>`（保存期間 14 日）に置く。`new_release_package.ps1`・`new_installer.ps1` は `-Version`（ここではブランチ名）を `^[A-Za-z0-9._-]+$` で確かめるため、`/` を含むブランチ（`dependabot/...` など）からは起動できない
@@ -173,6 +173,8 @@ git push origin v0.1.0
 - 手元で見るときは次のとおり（生成物は `work/site/`）
 
 ```
-pip install --require-hashes -r tools/mkdocs/requirements.txt
-mkdocs serve -f tools/mkdocs/mkdocs.yml
+.\tools\setup_dev.ps1    # work/mkdocs-venv を作り、requirements.txt を入れる（1 回）
+work\mkdocs-venv\Scripts\mkdocs serve -f tools/mkdocs/mkdocs.yml
 ```
+
+`tools/setup_dev.ps1` は上の `pip install --require-hashes -r tools/mkdocs/requirements.txt` を `work/mkdocs-venv` の中で行う。
