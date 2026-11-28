@@ -6,7 +6,11 @@
 
 ```mermaid
 flowchart LR
-    W["gh workflow run perf.yml<br>ref・scale・count・ingest・typing"] --> DATA["tebunko-perfdata の new_index.ps1<br>でデータを生成"]
+    W["gh workflow run perf.yml<br>ref・scale・count・ingest・typing<br>base_ref・rounds・scattered"] --> DATA["tebunko-perfdata の new_index.ps1<br>でデータを生成"]
+    W --> SCAT["散らばる語のデータを生成<br>（scattered = 1 のときだけ）"]
+    DATA & SCAT --> CMP["前と後の比べ measure_compare.ps1<br>（base_ref があるとき。前 → 後 を rounds 組）"]
+    W --> HIT["PSCustomObject 1 万件を作る時間<br>（scattered = 1 のときだけ）"]
+    CMP & HIT --> OUT
     DATA --> ING["Office からの取り込み<br>（ingest ≠ 0 のときだけ）"]
     DATA --> IDX["インデックス作成<br>publishIndexFolders と gram 索引"]
     DATA --> SEARCH["検索<br>語ごとに新しいプロセス"]
@@ -21,7 +25,14 @@ flowchart LR
 gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
 ```
 
-- 入力: `ref`（測る ref。作業中のブランチも測れる）、`scale`（データの量。`0.04` はブック約 2,100・TSV 約 6,400（入力しながらの検索の 7,000 件規模）、`1` でブック 5.4 万・TSV 16 万・約 1GB）、`count`（語ごとに続けて検索する回数。既定 20）、`ingest`（取り込みを測る .docx・.pptx のそれぞれの数。`0` `200` `1000`。既定 `0` は取り込みを測らない。検索だけを測る起動が長くならないようにする）、`xlsx`（Excel のブックを ZIP から読む部分を測る、普通のブックを読む回数。`0` `5`。既定 `0` は測らない）、`typing`（入力しながらの検索を測る、語ごとの入力の繰り返し回数。`0` `10` `20`。既定 `0` は測らない）、`typing_min_length`（入力しながらの検索で最初に送る語の長さ。`3`（既定。画面と同じで合否を決める）・`1`（短い語の取り消しを多く含む厳しめの参考値））
+- 入力: `ref`（測る ref。作業中のブランチも測れる。コミットを渡すときは 40 桁で書く（短い番号は `actions/checkout` で取れず、チェックアウトの段で止まる）。ブランチ・タグはそのまま書ける）、`scale`（データの量。`0.04` はブック約 2,100・TSV 約 6,400（入力しながらの検索の 7,000 件規模）、`1` でブック 5.4 万・TSV 16 万・約 1GB）、`count`（語ごとに続けて検索する回数。既定 20）、`ingest`（取り込みを測る .docx・.pptx のそれぞれの数。`0` `200` `1000`。既定 `0` は取り込みを測らない。検索だけを測る起動が長くならないようにする）、`xlsx`（Excel のブックを ZIP から読む部分を測る、普通のブックを読む回数。`0` `5`。既定 `0` は測らない）、`typing`（入力しながらの検索を測る、語ごとの入力の繰り返し回数。`0` `10` `20`。既定 `0` は測らない）、`typing_min_length`（入力しながらの検索で最初に送る語の長さ。`3`（既定。画面と同じで合否を決める）・`1`（短い語の取り消しを多く含む厳しめの参考値））、`base_ref`（比べる前の ref。既定は空で、空なら今までどおり `ref` だけを測る。コミットは `ref` と同じく 40 桁で書く。指定すると `ingest`・`xlsx`・`export`・`typing` は測らず、0 以外なら比べの段が警告を出す）、`rounds`（`base_ref` があるとき、前 → 後 を交互に測る組の数。`3` `5`。既定 `5`）、`scattered`（`0` `1`。既定 `0`。`1` なら場所ごとに 1 件ずつ散らばる語のデータも作って測り、PSCustomObject 1 万件を作る時間も測る）
+- 前と後の比べ（`base_ref` を渡したとき）は、直す前と後を同じ機械・同じデータで測るためのもの（ランナーの VM は実行ごとに CPU の型や Defender の状態が違いうるので、別々の実行どうしの差には機械の違いが入る）。`base_ref` を `base` のフォルダにもチェックアウトし、今の「計測する」の段の代わりに `tools/perf/measure_compare.ps1` を流す。取り込み・Excel・書き出し・入力しながらの検索・プレビューは測らない
+  - 前と後のそれぞれに、データ（perfdata の TSV と、`scattered` が `1` なら散らばる語の TSV）の写しを、ref ごと・データごとの置き場 `<作業>\<base|target>\<perfdata|scattered>` に作る（置き場の中は、測る版のワークスペースの本文インデックスの置き場の形。gram 索引も作る）。`measure_perf.ps1` は TSV を pack に変えて消すので、写しを ref ごとに分ける
+  - 組ごとに、前の perfdata → 前の散らばる語 → 後の perfdata → 後の散らばる語 の順に `measure_perf.ps1` を起動する（`scattered` が `0` なら 前 → 後 の 2 回）。perfdata の語と散らばる語は、置き場と語の表を分けて別々に起動する（1 つにまとめると、どちらの語もほかのデータまで照合し、今の計測と別の数字になるため）。1 組目はインデックス作成（pack と gram 索引）も測り、2 組目からは pack だけの置き場で検索だけを測る。起動ごとの結果は artifact の `compare\<組>\<base|target>\<perfdata|scattered>` に置く
+  - 比べる値: 語ごと・ref ごとに、組ごとの「数え終わるまで」（`TotalMs`）の中央値を `rounds` 個並べ、その中央値を「その ref の値」にする。揺れは前の `rounds` 個の (最大 − 最小) ÷ 中央値、比は 後 ÷ 前。件数（前と後・組をまたいで同じか）と GC 回数（組ごとの値の中央値）も並べる。結果は Summary の「前と後の比べ」の節と、artifact の `compare.md`・`compare.json`。上限・合否は置かない（数字を並べるだけ）
+  - 同じ ref を `base_ref` と `ref` に渡すと、比は 1 に近くなる（同じ機械の中の揺れの目安になる）
+- 散らばる語（`scattered` が `1` のとき）は、`tools/perf/new_scattered_data.ps1` で、場所ごとに 1 件ずつ散らばる語のデータ（19 ファイル × 500 場所 × 1 行。ヒット 9,500 件で、検索の上限 1 万件より少なくする）を、ほかの計測のデータと混ざらない別の置き場に作る。TSV は Word のページ（`ページ001` など）の形で、1 つの TSV の 3 行のうち真ん中の 1 行だけに語を含める。語の表も同じスクリプトが書く。`base_ref` が空なら、散らばる語は `ref` だけを 1 回測る（Summary の「散らばる語の検索」の節）
+  - 同じ実行の中で、`tools/perf/measure_hit_objects.ps1` が、検索のヒットと同じ 8 項目（Root・RelPath・RelDir・FileName・Book・Location・LineNumber・Line）の PSCustomObject を 1 万件、`List[psobject]` に作る時間を、新しいプロセスで `count` 回測る（tebunko の版によらないので、ref ごとには測らない）。結果は Summary の「PSCustomObject 1 万件を作る時間」の節と、artifact の `hit_objects.md`・`hit_objects.json`
 - 計測スクリプト（`tools/measure_perf.ps1` と `tools/perf/`）はワークフローの ref から、計測対象のコードは入力の ref からチェックアウトする。計測スクリプトが呼ぶ関数（`publishIndexFolders`・`getContentIndexFiles`・`searchContentIndex`。名前を改める前の版の `getIndexPackFiles`・`searchPackIndex` でもよい）が無い ref（本文インデックスの形式より前の版）では、エラーメッセージを出して止まる
 - データは [tebunko-perfdata](https://github.com/hsgwa/tebunko-perfdata) の `new_index.ps1` で毎回生成する（取り込みの一時置き場と同じ形の TSV）。置き場は `<作業フォルダ>\store\content\perfdata`（ワークスペースの本文インデックスの置き場と同じ形。`<作業フォルダ>` がワークスペースになり、gram 索引は `<作業フォルダ>\store\gram` に作る）。使う版は `perf.yml` の `PERFDATA_SHA` でコミットに固定する。検索する語は同じリポジトリの `words.tsv`（0 件・まれ（3 件）・大量・正規表現）
 - ジョブの制限時間（`timeout-minutes`）は 360 分（GitHub のホストのランナーの上限）。`scale` が大きいと、データの生成・pack の作成・gram 索引の作成・検索（大量の語・正規表現は gram 索引で絞れず、1 回が長い）の合計が 120 分を超える。段ごとの時間は Summary の「インデックス作成」と「検索」の表と、`data_seconds` で分かる

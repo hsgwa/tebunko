@@ -51,6 +51,13 @@ BeforeAll {
         $fake.Jobs.Add(@{ ScriptBlock = $scriptBlock; Arguments = $arguments; OnDone = $onDone; Queue = $queue })
     }
 
+    # 画面のスレッドの分割（startUiWork ほか）。タイマーは偽物で、結果を見る前に completeUiWork で終わらせる
+    . "$PSScriptRoot\..\..\helpers\ui_work.ps1"
+    function reportUnexpectedError {
+        param ([string]$context, $record)
+        $fake.ErrorLogs.Add("report : $($record.Exception.Message)")
+    }
+
     . "${scriptsDir}\tebunko\ui\index_tree.ps1"
 
     function loadIndexTreeNow {
@@ -61,6 +68,7 @@ BeforeAll {
         $output = @(& $job.ScriptBlock @jobArguments)
         & $job.OnDone $output ""
         [void]$fake.Jobs.Remove($job)
+        completeUiWork indexTree
     }
 
     # 設定の保存先がリポジトリの setting.config・work\ にならないよう、どこにも無い場所にしておく（各 Describe で TestDrive に向け直す）
@@ -89,6 +97,13 @@ BeforeAll {
     function writeSettingsJson {
         param ([string]$path, [string]$json)
         [System.IO.File]::WriteAllText($path, $json, (New-Object System.Text.UTF8Encoding $false))
+    }
+
+    function newTreeData([string[]]$names) {
+        return @{
+            State = ${pathStateFound}; Message = ""; Root = "C:\work\index"; Sources = @{}; OldIndexCount = 0; Children = @{}
+            Indexes = @($names | ForEach-Object { @{ Name = $_; SourcePath = ""; Exists = $false; HasSubfolders = $false } })
+        }
     }
 
     function getRoot([string]$name) {
@@ -227,6 +242,63 @@ Describe "loadIndexTree" -Tag Io {
         loadIndexTreeNow
 
         (@($script:indexRoots | ForEach-Object { $_.Name }) -join ",") | Should -Be "営業部"
+    }
+
+    Context "反映の分割" {
+        BeforeEach {
+            $script:sourceFolderMaps = @{}
+            $script:indexTreeLoading = $false
+            $fake.ErrorLogs.Clear()
+            $script:clock = 0
+            # 1 件回すたびに予算切れにする（1 回の予算で 1 件だけ回る）
+            Mock getUiWorkMilliseconds { $script:clock += 100; $script:clock }
+        }
+
+        AfterEach {
+            stopUiWork indexTree
+        }
+
+        It "applyIndexTreeData のあと completeUiWork で、根が設定の順にそろう" {
+            applyIndexTreeData (newTreeData @("a", "b", "c")) @()
+
+            $script:indexRoots.Count | Should -Be 1
+            completeUiWork indexTree
+
+            (@($script:indexRoots | ForEach-Object { $_.Name }) -join ",") | Should -Be "a,b,c"
+        }
+
+        It "終わるまで indexTreeLoading は真で、終わると偽になり、対象を更新する" {
+            $before = $fake.TargetUpdates
+
+            applyIndexTreeData (newTreeData @("a", "b")) @()
+
+            $script:indexTreeLoading | Should -Be $true
+            testUiWorkRunning indexTree | Should -Be $true
+            $fake.TargetUpdates | Should -Be $before
+            completeUiWork indexTree
+            $script:indexTreeLoading | Should -Be $false
+            $fake.TargetUpdates | Should -Be ($before + 1)
+        }
+
+        It "途中で呼び直すと、前の分の根は残らない" {
+            applyIndexTreeData (newTreeData @("a", "b", "c")) @()
+
+            applyIndexTreeData (newTreeData @("x", "y")) @()
+            completeUiWork indexTree
+
+            (@($script:indexRoots | ForEach-Object { $_.Name }) -join ",") | Should -Be "x,y"
+        }
+
+        It "OnItem が例外を投げたら、知らせて止まり、indexTreeLoading が偽に戻る" {
+            Mock applyIndexTreeChildren { throw "壊れた" }
+
+            applyIndexTreeData (newTreeData @("a", "b")) @()
+            completeUiWork indexTree
+
+            $script:indexTreeLoading | Should -Be $false
+            testUiWorkRunning indexTree | Should -Be $false
+            @($fake.ErrorLogs | Where-Object { $_ -like "report*壊れた" }).Count | Should -Be 1
+        }
     }
 }
 
@@ -368,6 +440,7 @@ Describe "applyIndexTreeData（根ごとの振り分け）" -Tag Io {
         }
 
         applyIndexTreeData $data @("$r\営業", "$r\閉鎖", "D:\ほか\営業")
+        completeUiWork indexTree
 
         (getRoot "営業").IsChecked | Should -Be $true
         (getRoot "営業部").IsChecked | Should -Be $false
@@ -496,6 +569,7 @@ Describe "ネットワークのワークスペース" -Tag Unit {
         loadIndexTree
 
         & $fake.Jobs[0].OnDone @(newNetData) ""
+        completeUiWork indexTree
 
         $script:indexTreeLoading | Should -Be $false
         (@($script:indexRoots | ForEach-Object { $_.Name }) -join ",") | Should -Be "営業部,総務部"
@@ -513,6 +587,7 @@ Describe "ネットワークのワークスペース" -Tag Unit {
         $script:indexRoots.Count | Should -Be 0
         $script:indexTreeLoading | Should -Be $true
         & $fake.Jobs[1].OnDone @(newNetData) ""
+        completeUiWork indexTree
         $script:indexRoots.Count | Should -Be 2
     }
 
