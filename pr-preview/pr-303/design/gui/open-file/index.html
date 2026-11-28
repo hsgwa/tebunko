@@ -2771,6 +2771,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2899,6 +2905,90 @@
     
   
     画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス管理）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（検索と検索結果）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../messages-indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス作成の実行）
   
 
     
@@ -3373,7 +3463,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_20" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3395,14 +3485,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_20" id="__nav_3_7_20_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_17">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_20">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4513,14 +4603,14 @@
 </tbody>
 </table>
 <h2 id="もらったインデックスのマクロを持てる形式">もらったインデックスのマクロを持てる形式<a class="headerlink" href="#もらったインデックスのマクロを持てる形式" title="Permanent link">&para;</a></h2>
-<p>設定の <code>targetFolders</code> に名前が無いインデックス（もらったインデックス）の元のファイルのうち、マクロ（ファイルの中のプログラム）を持てる形式は、開き方が「通常」「新規」でも<strong>読み取り専用で開く</strong>（<code>getSourceOpenMode</code>）。対象の拡張子は <code>.xlsm</code> <code>.xlsb</code> <code>.xls</code> <code>.docm</code> <code>.doc</code> <code>.pptm</code> <code>.ppt</code>（大文字・小文字を区別しない）。</p>
+<p>設定の <code>targetFolders</code> に名前が無いインデックス（もらったインデックス）の元のファイルのうち、マクロ（ファイルの中のプログラム）を持てないと分かる形式（<code>.xlsx</code> <code>.docx</code> <code>.pptx</code>・PDF・テキスト。<code>macroFreeExtensions</code>。大文字・小文字を区別しない）<strong>以外</strong>は、開き方が「通常」「新規」でも<strong>読み取り専用で開く</strong>（<code>getSourceOpenMode</code>）。持てる形式の一覧でなく持てない形式の一覧で決めるので、<code>.xlsm</code> <code>.xls</code> <code>.docm</code> <code>.dotm</code> <code>.xlam</code> などのほか、一覧から漏れた拡張子・拡張子のあとにストリーム名が付く名前・拡張子が無い名前も、読み取り専用になる（安全側）。取り込みの対象でない名前は、その前にファイルを開く守りが断る。</p>
 <ul>
 <li>もらったインデックスかどうかは、元のファイルを見つけたインデックスの名前を <code>findSourceFile</code> の続きに渡して判定する（<code>openFoundSource</code> が、場所の対応のキャッシュから引き直さない）。名前が渡されないときは、もらったインデックスとして扱う（<code>testSourceReceived</code>）。</li>
 <li>読み取り専用に替えたときは、ステータスの終わりに <code>（もらったインデックスのため、マクロを持てる形式は読み取り専用で開きます）</code> を添える。もう読み取り専用を選んでいるときは添えない。</li>
 <li>読み取り専用で開けないとき（動詞 <code>OpenAsReadOnly</code> が登録されていない・Excel の COM が使えず動詞でも開けない）は、<strong>通常の開き方には落とさず、開かない</strong>（<code>openWithShell</code> の <code>-noFallback</code>）。ステータスに <code>もらったインデックスのファイルは読み取り専用で開けなかったため、開きませんでした。［ファイルのパスをコピー］で場所を調べ、確かめてから開いてください：&lt;パス&gt;</code> と出す。</li>
 <li>読み取り専用で開くために Excel の <code>AutomationSecurity</code> を <code>2</code> にできなかったときは、Excel では開かず（マクロが動く設定のまま開かないため）、上の「読み取り専用で開けないとき」と同じ扱いにする（<code>setExcelAutomationSecurity</code> が例外を出す）。</li>
 <li>拡張子は、ファイル名の終わりの <code>.</code> と空白を落としてから見る（Windows は <code>evil.xlsm.</code> を <code>evil.xlsm</code> として開くため）。</li>
-<li>自分で作ったインデックス（<code>targetFolders</code> にある名前）と、マクロを持てない形式（<code>.xlsx</code> <code>.docx</code> <code>.pptx</code> など）は、選んだ開き方のまま開く。</li>
+<li>自分で作ったインデックス（<code>targetFolders</code> にある名前）と、マクロを持てないと分かる形式（<code>.xlsx</code> <code>.docx</code> <code>.pptx</code>・PDF・テキスト）は、選んだ開き方のまま開く。</li>
 <li>読み取り専用は、ファイルを上書きしないための開き方であって、それだけでマクロの実行を止めるものではない。マクロを実行するかは Office の設定（セキュリティセンター）に従う。</li>
 </ul>
 <h2 id="元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）<a class="headerlink" href="#元のファイルが見つからないとき元のフォルダを設定する" title="Permanent link">&para;</a></h2>

@@ -3028,6 +3028,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3156,6 +3162,90 @@
     
   
     画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス管理）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（検索と検索結果）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス作成の実行）
   
 
     
@@ -3539,7 +3629,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_20" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3561,14 +3651,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_20" id="__nav_3_7_20_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_17">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_20">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -5102,7 +5192,7 @@ content_index/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番
 <li>2-gram の索引は、インポートでは作らず、次のインデックス作成に任せる（下の「2-gram の索引を作る時機」）。</li>
 <li>作業フォルダを消す。</li>
 </ol>
-<p><strong>戻し方</strong>: 7〜9 のどこかで失敗したら、逆の操作で戻して例外にする（戻しは対になる関数 <code>restoreImportedSettings</code>・<code>restoreSwappedIndexDir</code> が行い、<code>importIndexCore</code> は入れ子の <code>try</code> の順に呼ぶ）。設定は、変える 3 つの項目（<code>targetFolders</code>・<code>indexSources</code>・<code>searchExcludes</code>）を、登録の前に読んだ値にそのまま書き戻す（並びも元のまま。ほかの項目には触れない）。<code>store\content\&lt;名前&gt;\</code> は退避した <code>previous\</code> を戻す（新しく足したときは消す）。取り込み一覧は一時ファイルからの置き換えなので、失敗すれば前のまま。どの段階で失敗しても、作業フォルダ（<code>import\</code>）は消す。<code>tests/tebunko/index/index_archive.Tests.ps1</code> の「戻す」で、設定に書けない・入れ替えられない・取り込み一覧を書けない、のそれぞれを確かめている。</p>
+<p><strong>戻し方</strong>: 7〜9 のどこかで失敗したら、逆の操作で戻して例外にする（戻しは対になる関数 <code>restoreImportedSettings</code>・<code>restoreSwappedIndexDir</code> が行い、<code>importIndexCore</code> は入れ子の <code>try</code> の順に呼ぶ）。設定は、変える 3 つの項目（<code>targetFolders</code>・<code>indexSources</code>・<code>searchExcludes</code>）を、登録の前に読んだ値にそのまま書き戻す（並びも元のまま。ほかの項目には触れない）。<code>store\content\&lt;名前&gt;\</code> は退避した <code>previous\</code> を戻す（新しく足したときは消す）。取り込み一覧は一時ファイルからの置き換えなので、失敗すれば前のまま。どの段階で失敗しても、作業フォルダ（<code>import\</code>）は消す。ただし、<strong>退避した <code>previous\</code> を戻せなかったとき</strong>（戻す移動が偽・例外になる、または新しく入れたフォルダを消せない）は、元のインデックスを失わないよう、<code>previous\</code> を消さずに残す（<code>throwSwapRestoreFailed</code>）。例外の <code>Data["KeepPrevious"]</code> に <code>previous\</code> のパスを入れ、<code>importIndexCore</code> の片付け（<code>removeImportWorkDirKeeping</code>）が <code>previous\</code> 以外を消し、<code>publish\&lt;PID&gt;\keep_previous.txt</code>（1 行目に残した場所）を置く。この印のあるフォルダは、終了済みのプロセスの片付け（<code>removeStaleProcessDirs</code>）も消さずに黄色のログで知らせ、同じ PID の次の取り込みは、始めに印を見つけると何も消さずに止まる（<code>assertNoKeptPrevious</code>）。利用者が <code>previous\</code> を手で <code>store\content\&lt;名前&gt;\</code> に戻してから、印のファイルを消す。メッセージは <a href="../../gui/messages-index-ops/">画面に出す文言（インデックスの操作）</a>。<code>tests/tebunko/index/index_archive.Tests.ps1</code> の「戻す」で、設定に書けない・入れ替えられない・取り込み一覧を書けない、のそれぞれと、戻す移動そのものが失敗したときに <code>previous\</code> が残ることを確かめている。</p>
 <p><strong>強制終了したとき</strong>:</p>
 <ul>
 <li>5 の途中: 作業フォルダだけが残り、次のインデックス作成の <code>removeStaleTmpDirs</code>（終了済みのプロセスの <code>publish\&lt;PID&gt;</code>）で消える。ワークスペースは変わらない。</li>

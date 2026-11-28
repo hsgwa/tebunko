@@ -2769,6 +2769,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2897,6 +2903,90 @@
     
   
     画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui/messages-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス管理）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui/messages-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（検索と検索結果）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui/messages-indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス作成の実行）
   
 
     
@@ -3280,7 +3370,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_20" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3302,14 +3392,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_20" id="__nav_3_7_20_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_17">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_20">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4213,9 +4303,9 @@
     PR --&gt; R2["pr-title（title.yml）"]
     PR --&gt; R3["docs（docs.yml）"]
     PR --&gt; R4["analyze（codeql.yml）"]
-    PR --&gt; R5["gui-smoke（gui.yml）&lt;br&gt;必須ではない"]
     R1 &amp; R2 &amp; R3 &amp; R4 --&gt; M["main へ squash merge"]
-    M --&gt; T["v* タグ"] --&gt; REL["release.yml&lt;br&gt;test を再実行して配布 zip とインストーラーを公開"]</code></pre>
+    M --&gt; T["v* タグ"] --&gt; REL["release.yml&lt;br&gt;test を再実行して配布 zip とインストーラーを公開"]
+    M --&gt; N["nightly.yml（毎日）&lt;br&gt;全部のテスト・カバレッジ・gui-smoke&lt;br&gt;失敗は Discord へ"]</code></pre>
 <table>
 <thead>
 <tr>
@@ -4229,14 +4319,14 @@
 <tr>
 <td>単体テスト（Unit・Io・Meta）</td>
 <td>関数の動きの誤り、構成の決まりの違反</td>
-<td><code>tests/run.ps1</code>（Pester 5.9.0）。<a href="unit-index/">単体テスト</a>・<a href="run/">テストの実行と CI</a></td>
-<td>CI の <code>test</code></td>
+<td><code>tests/run.ps1</code>（Pester 5.9.0）。PR では変えたファイルに対応するテストだけ、全部は毎日の <code>nightly.yml</code>。<a href="unit-index/">単体テスト</a>・<a href="run/">テストの実行と CI</a></td>
+<td>CI の <code>test</code>（PR は変更分）</td>
 </tr>
 <tr>
 <td>カバレッジの下限</td>
 <td>テストされない処理が増えること</td>
-<td><code>tests/coverage.baseline</code>（90.0%）を下回ると <code>-Ci</code> が失敗する。<a href="run/">テストの実行と CI</a></td>
-<td>CI の <code>test</code></td>
+<td><code>tests/coverage.baseline</code>（90.0%）を下回ると <code>-Ci</code> が失敗する。毎日の <code>nightly.yml</code> とリリースで確かめる。<a href="run/">テストの実行と CI</a></td>
+<td>–（毎日の <code>nightly.yml</code>・<code>release.yml</code>）</td>
 </tr>
 <tr>
 <td>構成・安全性のメタテスト</td>
@@ -4247,8 +4337,8 @@
 <tr>
 <td>画面のスモークテスト</td>
 <td>画面の起動・タブ・検索・インデックスの作成・ワークスペースの変更・閉じるの流れが壊れること（XAML の読み込み・イベントの配線・ダイアログの開閉・後片付けの例外）</td>
-<td><code>gui.yml</code>（<code>gui-smoke</code>。<code>tests/gui/</code>・タグ <code>Gui</code>）。手元は <code>.\tests\run.ps1 -Tag Gui</code>。<a href="gui-smoke/">画面のスモークテスト</a></td>
-<td>–（必須にしない）</td>
+<td><code>gui.yml</code>（<code>gui-smoke</code>。<code>tests/gui/</code>・タグ <code>Gui</code>）。毎日の <code>nightly.yml</code> から呼ぶ。手元は <code>.\tests\run.ps1 -Tag Gui</code>。<a href="gui-smoke/">画面のスモークテスト</a></td>
+<td>–（毎日の <code>nightly.yml</code>）</td>
 </tr>
 <tr>
 <td>静的解析</td>
@@ -4416,6 +4506,7 @@
 </tbody>
 </table>
 <p>テストデータの作り方と、各ファイルで確かめる内容は <a href="https://github.com/hsgwa/tebunko/blob/main/tests/testdata/README.md">tests/testdata/README.md</a> にある。</p>
+<p>手での確認・スクリーンショット用のサンプル（架空の会社の Excel・Word・PowerPoint を既定 40 件）は <code>tools/new_sample.ps1</code> で作る。使い方は <a href="https://github.com/hsgwa/tebunko/blob/main/tests/testdata/README.md">tests/testdata/README.md</a> の「サンプルとの違い」にある。</p>
 
 
 
