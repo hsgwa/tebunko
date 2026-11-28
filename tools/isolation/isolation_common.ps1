@@ -30,6 +30,16 @@ function assertNotRealWorkspace {
     }
 }
 
+function assertWorkspaceIsolated {
+    # 決まったワークスペースが、使い捨ての既定の場所（TEBUNKO_DEFAULT_WORKSPACE）の中でなければ例外にする。
+    # 設定ファイルの workspaceFolder が、使い捨ての外の本物の場所を指す穴をふさぐ（書き込む前に止める）
+    param ([string]$Path, [string]$Isolated = $env:TEBUNKO_DEFAULT_WORKSPACE)
+
+    if (!(testIsolationPathInside $Path $Isolated)) {
+        throw "テストの準備が、使い捨ての外を指しています: $Path （設定ファイルの workspaceFolder を空にしてください）"
+    }
+}
+
 function newIsolatedFolder {
     # 一時フォルダの下に新しい使い捨てのフォルダを作って、そのパスを返す
     param ([string]$Prefix = "tebunko-isolated")
@@ -41,8 +51,9 @@ function newIsolatedFolder {
 
 function getIsolationSnapshot {
     # フォルダ（またはファイル）の中身の写し。名前・大きさ・更新時刻（ファイルだけ。フォルダは名前だけ）を控える（中身は読まない）。
-    # 返すのは「相対パス → 大きさ:更新時刻」の連想配列。無ければキー "" に "(無い)" を入れる
-    param ([string]$Path)
+    # 返すのは「相対パス → 大きさ:更新時刻」の連想配列。無ければキー "" に "(無い)" を入れる。
+    # Exclude は除く相対パス（例 "test"）。キーが Exclude そのものか "<Exclude>\" で始まるものは含めない（区切りで比べるので "testing" は除かない）
+    param ([string]$Path, [string[]]$Exclude = @())
 
     $map = @{}
     if (!(Test-Path -LiteralPath $Path)) {
@@ -59,7 +70,14 @@ function getIsolationSnapshot {
     foreach ($child in @(Get-ChildItem -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue)) {
         # フォルダの更新時刻は控えない。NTFS は、一覧に出すフォルダの時刻を遅れて更新するため、
         # 中身が同じでも前後で値が違って見える（誤検知になる）。中の増減は、中の名前の違いに出る
-        $map[$child.FullName.Substring($prefix.Length)] = if ($child.PSIsContainer) { "(フォルダ)" } else { "$($child.Length):$($child.LastWriteTimeUtc.Ticks)" }
+        $key = $child.FullName.Substring($prefix.Length)
+        $excluded = $false
+        foreach ($ex in $Exclude) {
+            $e = "\" + $ex.Trim("\")
+            if ($key.Equals($e, [System.StringComparison]::OrdinalIgnoreCase) -or $key.StartsWith($e + "\", [System.StringComparison]::OrdinalIgnoreCase)) { $excluded = $true; break }
+        }
+        if ($excluded) { continue }
+        $map[$key] = if ($child.PSIsContainer) { "(フォルダ)" } else { "$($child.Length):$($child.LastWriteTimeUtc.Ticks)" }
     }
     return $map
 }
@@ -96,13 +114,24 @@ function compareIsolationSnapshot {
     return @($diffs)
 }
 
+function getIsolationWatchTarget {
+    # 見張る場所の指定（文字列のパスか @{ Path; Exclude }）を Path と Exclude にそろえる
+    param ($Target)
+
+    if ($Target -is [System.Collections.IDictionary]) {
+        return @{ Path = [string]$Target.Path; Exclude = @($Target.Exclude | Where-Object { $_ }) }
+    }
+    return @{ Path = [string]$Target; Exclude = @() }
+}
+
 function newIsolationWatch {
-    # 見張る場所（表示の名前 → パス）の前の写しを控える。終わりに getIsolationWatchDiffs で比べる
+    # 見張る場所（表示の名前 → パス。除く場所があるときは @{ Path = <パス>; Exclude = @("test") }）の前の写しを控える。終わりに getIsolationWatchDiffs で比べる
     param ([System.Collections.IDictionary]$Targets)
 
     $before = [ordered]@{}
     foreach ($label in $Targets.Keys) {
-        $before[$label] = getIsolationSnapshot $Targets[$label]
+        $t = getIsolationWatchTarget $Targets[$label]
+        $before[$label] = getIsolationSnapshot $t.Path $t.Exclude
     }
     return @{ Targets = $Targets; Before = $before }
 }
@@ -113,7 +142,8 @@ function getIsolationWatchDiffs {
 
     $diffs = New-Object System.Collections.Generic.List[string]
     foreach ($label in $Watch.Targets.Keys) {
-        foreach ($d in @(compareIsolationSnapshot $Watch.Before[$label] (getIsolationSnapshot $Watch.Targets[$label]) $label)) {
+        $t = getIsolationWatchTarget $Watch.Targets[$label]
+        foreach ($d in @(compareIsolationSnapshot $Watch.Before[$label] (getIsolationSnapshot $t.Path $t.Exclude) $label)) {
             $diffs.Add($d)
         }
     }

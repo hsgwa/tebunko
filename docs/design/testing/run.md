@@ -34,13 +34,13 @@ flowchart LR
 | 守り | 内容 |
 |---|---|
 | `tests/run.ps1` | Pester の前に使い捨てのフォルダを作って変数に入れる。入れた場所が既定のワークスペースの場所と同じかその下なら、流さずに止まる。流す前後で既定のワークスペースの名前・大きさ・更新時刻（中身は読まない）を比べ、違えば失敗にする（どのタグでも） |
-| `tests/helpers/load.ps1` | `lib.ps1` を読む前に、変数が空なら使い捨てを入れる（`Invoke-Pester` を直接流したとき）。`initWorkspace` のあとで、決まったワークスペースが利用者の既定のワークスペースでないことを確かめる |
+| `tests/helpers/load.ps1` | `lib.ps1` を読む前に、変数が空なら使い捨てを入れる（`Invoke-Pester` を直接流したとき）。`initWorkspace` のあとで、決まったワークスペースが利用者の既定のワークスペースでないことと、使い捨ての中であること（`assertWorkspaceIsolated`。設定ファイルの `workspaceFolder` が外を指すと止まる）を確かめる |
 | `tests/gui/gui_helpers.ps1` | 画面の起動の前に、差し替えた既定の場所が利用者の既定のワークスペースでないことを確かめ、画面のプロセスにだけ変数を渡す。前後の写しに既定のワークスペースを含める |
 | `runIndexer`（`tests/helpers/indexer.ps1`） | `indexer.ps1` を動かす前に、取り込みの出力先が使い捨ての中であることを確かめる |
 | `tools/capture_screens.ps1` | 撮る前に使い捨てを入れ、撮り終えたあとで既定のワークスペースの前後を比べる |
 | `tests/meta/test_isolation.Tests.ps1` | 上の仕組みが残っていること、`initWorkspace` や `workspaceFolder = ""` を差し替えずに使う書き方が決まったファイルの外に無いことを確かめる |
 
-実機で画面や取り込みを確かめるときは `tools/run_isolated.ps1` を通す。`%TEMP%` の下の新しいフォルダに `scripts\` と `tebunko.bat` の写し・`setting.config`（`-Settings` で指定）・使い捨てのワークスペースを作り、起動の前に設定ファイルの場所と `work` の場所が使い捨ての中であることを確かめてから起動する（外を指していれば起動しない）。画面を自動で確かめるときは `-WaitSeconds <秒>` で待つ秒数を指定する（過ぎても生きていれば、起動した PID とその子だけを止める。待つ前に 0 以外で終わると終了コード 1）。終わったら、既定のワークスペースと、リポジトリの `setting.config`・`work\` の前後を比べ、違いがあれば一覧を出して終了コード 1 にする。共通の関数は `tools/isolation/isolation_common.ps1`。
+実機で画面や取り込みを確かめるときは `tools/run_isolated.ps1` を通す。`%TEMP%` の下の新しいフォルダに `scripts\` と `tebunko.bat` の写し・`setting.config`（`-Settings` で指定）・使い捨てのワークスペースを作り、起動の前に設定ファイルの場所と `work` の場所が使い捨ての中であることを確かめてから起動する（外を指していれば起動しない）。画面を自動で確かめるときは `-WaitSeconds <秒>` で待つ秒数を指定する（過ぎても生きていれば、起動した PID とその子だけを止める。待つ前に 0 以外で終わると終了コード 1）。終わったら、既定のワークスペースと、リポジトリの `setting.config`・`work\` の前後を比べる（リポジトリの `work\test\` は、テストが正規に書く場所なので前後の比べから除く。`work\testing\` など別名は除かない。見張る `work` の場所はテスト用の `-RealWorkRoot` で差し替えられる）。違いがあれば一覧を出して終了コード 1 にする。共通の関数は `tools/isolation/isolation_common.ps1`。
 
 前後の比べは、このプロセスの外が既定のワークスペースに書いた場合（利用者自身の操作・別の作業ツリーのテスト）も失敗にする。失敗したときは、一覧（名前・大きさ・更新時刻）の更新時刻を手がかりに、何が書いたかを確かめる。
 
@@ -98,6 +98,8 @@ Pester 5 はテストを「探す段階」と「流す段階」に分けて動�
 ```
 
 いずれも失敗したテストの数を終了コードにする（フックと CI が見る）。1 件も実行しなかったときも失敗にする（終了コード 1）。タグの打ち間違いで、何も確かめないまま通るのを防ぐため。
+
+テストは StrictMode（Set-StrictMode -Version 2）で流す（un.ps1 が Invoke-Pester の前に掛ける）。未定義の変数・無いプロパティを読むと例外になるので、打ち間違いが $null で素通りしてテストが緑になることはない。Latest にしないのは、将来の版で厳しくなって急に落ちるのを避けるため。直せないテストファイルだけ、最上位の BeforeAll の先頭に Set-StrictMode -Off を書き、	ests/helpers/strict_mode_exceptions.ps1 の getStrictModeExceptions（パスと理由の表）に載せる。	ests/meta/strict_mode.Tests.ps1 が、一覧と Set-StrictMode -Off を書いたファイルの一致と、全部に理由があることを確かめる。増やさない（まず本番かテストを直す）。
 
 ### snapshot の作り直し
 

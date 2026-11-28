@@ -309,6 +309,7 @@ Describe "isSameOfficeProcess" -Tag Unit {
         @{ name = "控えた起動時刻が 0 なら `$false（Unknown）"; procName = "EXCEL"; start = "zero"; handle = "ok"; expected = $false; compare = "Unknown" }
     ) {
         param ($name, $procName, $start, $handle, $expected, $compare)
+        $strictLatest = $false
         $actual = [datetime]"2030-01-01T00:00:00Z"
         $process = newFakeProcess 10 $procName $(if ($start -eq "unreadable") { $null } else { $actual })
         if ($handle -eq "denied") {
@@ -317,7 +318,7 @@ Describe "isSameOfficeProcess" -Tag Unit {
         if ($handle -eq "throws") {
             # ScriptProperty の例外は PowerShell が握りつぶすので、厳格モードで「無いプロパティを読む」例外にする
             $process.PSObject.Properties.Remove("Handle")
-            Set-StrictMode -Version Latest
+            $strictLatest = $true
         }
         $ticks = switch ($start) {
             "same" { $actual.ToUniversalTime().Ticks }
@@ -326,8 +327,13 @@ Describe "isSameOfficeProcess" -Tag Unit {
             "zero" { 0 }
             default { $null }
         }
-        isSameOfficeProcess $process "EXCEL" $ticks | Should -Be $expected
-        compareOfficeProcess $process "EXCEL" $ticks | Should -Be $compare
+        try {
+            if ($strictLatest) { Set-StrictMode -Version Latest }
+            isSameOfficeProcess $process "EXCEL" $ticks | Should -Be $expected
+            compareOfficeProcess $process "EXCEL" $ticks | Should -Be $compare
+        } finally {
+            Set-StrictMode -Version 2   # 後続の It に Latest を残さない
+        }
     }
 
     It "ハンドルを開いてから、名前と起動時刻を読む（順番を守る）" {
