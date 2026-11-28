@@ -174,20 +174,32 @@ Describe "検索条件の行の折り返し" -Tag Gui {
                 if ($regex.Width -gt 0) { $regex }
             }
             resizeGuiWindow $S $wideWidth $wideHeight
+            $actual = $S.Window.Current.BoundingRectangle
+            if ($actual.Width -lt $wideWidth - 20) {
+                Set-ItResult -Skipped -Because "窓を $wideWidth にできなかった（実際は $($actual.Width)。作業領域は $($area.Width)×$($area.Height)）"
+                closeGui $S
+                return
+            }
             # 幅が広がると、［正規表現］は右へ動く
             waitGui $S "［正規表現］が右へ動く" ${guiDefaultTimeout} {
                 (& $script:rect $S "RegexCheck").Left -gt ($before.Left + 10)
             } | Out-Null
             (& $script:rect $S "RegexCheck").Left | Should -BeGreaterThan ($before.Left + 10) -Because "広げると［正規表現］は右へ動く"
-            # 文字の左は、吹き出しの左端から枠・余白・アイコンの分（29 前後）だけ右
+            # 文字の左は、吹き出しの左端から枠・余白・アイコンの分（29 前後）だけ右。
+            # ただし［正規表現］が右端に寄ると吹き出しの幅が収まらず、getBalloonLeft が右端に収まるまで左へ寄せる。
+            # そのときは左端をそろえず（差が 24 未満）、文字の右端が窓の右端の手前 60 以内にある
             $script:balloon = waitGui $S "吹き出しが［正規表現］の下にそろう" ${guiDefaultTimeout} {
                 $regex = & $script:rect $S "RegexCheck"
                 $text = & $script:rect $S "RegexBalloonText"
                 $gap = $text.Left - $regex.Left
-                if ($gap -ge 24 -and $gap -le 34) { @{ Gap = $gap; Right = $text.Right; Window = $S.Window.Current.BoundingRectangle.Right } }
+                $windowRight = $S.Window.Current.BoundingRectangle.Right
+                $aligned = ($gap -ge 24 -and $gap -le 34)
+                $pushedLeft = ($gap -lt 24 -and $text.Right -le $windowRight -and $text.Right -ge $windowRight - 60)
+                if ($aligned -or $pushedLeft) { @{ Gap = $gap; Right = $text.Right; Window = $windowRight } }
             }
             closeGui $S
         }
+        if (!$script:balloon) { return }
         $script:balloon.Right | Should -BeLessOrEqual $script:balloon.Window -Because "吹き出しが窓の右端からはみ出さない"
     }
 
