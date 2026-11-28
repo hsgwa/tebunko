@@ -41,6 +41,13 @@ BeforeAll {
         }
     }
 
+    # 画面のスレッドの分割（startUiWork ほか）。タイマーは偽物で、結果を見る前に completeUiWork で終わらせる
+    . "$PSScriptRoot\..\..\..\helpers\ui_work.ps1"
+    function updateIndexingResume { }
+    function updateIndexTabBadge { }
+    function syncIngestedSubfolders { }
+    function syncIndexTextExtensions { }
+
     function newFakeUi {
         $ui = @{}
         foreach ($name in @("IndexingButton", "IndexingHint", "NewIndexButton", "IndexDetailPathButton", "IndexDetailName", "IndexDetailPath", "IndexDetailSubfolders", "ChangeIndexTextExtensionsButton", "RowMenuUpdate", "RowMenuOpenFolder", "ExportIndexButton", "RemoveIndexButton", "ActionsButton", "ActionUpdate", "ActionExport", "ActionImport", "ActionDelete", "SelectionCountText", "SelectAllCheckBox", "IndexGridPlaceholder", "IndexDetailHost", "IndexSplitter", "IndexingProgress")) {
@@ -232,12 +239,120 @@ Describe "updateIndexRowsProgress" -Tag Unit {
         Mock updateIndexFooter { }
         foreach ($row in $script:targetItems) { $row | Add-Member ScriptMethod SetStats { param ($a, $b, $c) } -Force }
 
+        Mock updateIndexingButton { }
+        Mock updateIndexingResume { }
+        Mock updateIndexTabBadge { }
+
         applyIndexStats $null $true $null
+        completeUiWork indexStats
 
         Should -Invoke getCurrentIndexJobBlocker -Times 1 -Exactly
         $script:indexRowsPercent | Should -BeNullOrEmpty
         $script:indexRowActionsKey | Should -Be (getIndexRowActionsKey "")
         $script:run1.RowActionCalls | Should -Be 1
+    }
+}
+
+Describe "applyIndexStats（予算ぶんずつ反映する）" -Tag Unit {
+    BeforeEach {
+        stopAllUiWork
+        $script:ui = newFakeUi
+        $script:targetItems = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
+        foreach ($name in @("営業", "技術")) {
+            $row = newFakeRow $name
+            $row | Add-Member NoteProperty StateText "" -Force
+            $row | Add-Member ScriptMethod SetIndexState { param ($text, $toolTip, $level, $sub, $percent) $this.StateText = $text } -Force
+            $script:targetItems.Add($row)
+        }
+        $script:exportingNames = @()
+        $script:indexBusy = $false; $script:archiveBusy = $false; $script:targetsNaming = $false; $script:workspaceMoving = $false
+        $script:indexRowsVersion = 0
+        $script:indexRowActionsKey = $null
+        $script:indexFileTotal = 0
+        $script:textExtState = @{ Excludes = @{}; Ingested = @{}; Counts = @{} }
+        $script:blocker = ""
+        $script:seenBlockers = New-Object System.Collections.Generic.List[string]
+        $script:stats = @{
+            "営業" = [pscustomobject]@{ Total = 10; Done = 8; Pending = 1; Failed = 1; LastIngested = "" }
+            "技術" = [pscustomobject]@{ Total = 20; Done = 20; Pending = 0; Failed = 0; LastIngested = "" }
+        }
+        $script:clock = 0
+        # 1 件回すたびに予算切れにする（1 回の予算で 1 件だけ回る）
+        Mock getUiWorkMilliseconds { $script:clock += 100; $script:clock }
+        Mock getCurrentIndexJobBlocker { $script:blocker }
+        Mock getIndexRowView { @{ Text = "最新"; ToolTip = ""; Level = "Ok"; Sub = ""; Percent = 0 } }
+        Mock setIndexRowActions { param ($item, $blocker) $script:seenBlockers.Add([string]$blocker) }
+        Mock updateIndexFooter { }
+        Mock updateIndexDetailPanel { }
+        Mock updateIndexingButton { }
+        Mock updateIndexingResume { }
+        Mock updateIndexTabBadge { }
+    }
+
+    AfterEach {
+        stopAllUiWork
+    }
+
+    It "予算を超える件数は途中までで、completeUiWork で全行の値と indexFileTotal がそろう" {
+        applyIndexStats $script:stats $false $null
+
+        $script:targetItems[0].StateText | Should -Be "最新"
+        $script:targetItems[1].StateText | Should -Be ""
+        $script:indexFileTotal | Should -Be 0
+        completeUiWork indexStats
+
+        $script:targetItems[1].StateText | Should -Be "最新"
+        $script:targetItems[0].FailedCount | Should -Be 1
+        $script:targetItems[0].PendingCount | Should -Be 1
+        $script:indexFileTotal | Should -Be 30
+        testUiWorkRunning indexStats | Should -Be $false
+    }
+
+    It "OnDone の最後に、後続の表示の置き直しが呼ばれる（回し直しで途中の呼び出しが捨てられても、最後の分のあとに呼ばれる）" {
+        applyIndexStats $script:stats $false $null
+        applyIndexStats $script:stats $true $null
+        completeUiWork indexStats
+
+        Should -Invoke updateIndexingButton -Times 2 -Exactly
+        Should -Invoke updateIndexingResume -Times 2 -Exactly
+        Should -Invoke updateIndexTabBadge -Times 2 -Exactly
+        Should -Invoke updateIndexDetailPanel -Times 2 -Exactly
+    }
+
+    It "控えから回し始めるときに blocker を求め直す（2 回目の行は新しい blocker で置かれる）" {
+        applyIndexStats $script:stats $false $null
+        $script:blocker = "新"
+        applyIndexStats $script:stats $false $null
+        completeUiWork indexStats
+
+        Should -Invoke getCurrentIndexJobBlocker -Times 2 -Exactly
+        ($script:seenBlockers -join ",") | Should -Be ",,新,新"
+    }
+
+    It "取り込む拡張子などの設定の読み直しは、作成中でないときだけ、回し始めるたびに 1 回" {
+        Mock syncIngestedSubfolders { }
+        Mock syncIndexTextExtensions { }
+
+        applyIndexStats $script:stats $true $null
+        completeUiWork indexStats
+        Should -Invoke syncIngestedSubfolders -Times 0 -Exactly
+
+        applyIndexStats $script:stats $false $null
+        completeUiWork indexStats
+        Should -Invoke syncIngestedSubfolders -Times 1 -Exactly
+        Should -Invoke syncIndexTextExtensions -Times 1 -Exactly
+    }
+
+    It "途中で fillTargetItems を呼ぶと、前の反映の OnItem・OnDone は回らない" {
+        Mock updateIndexListView { }
+        applyIndexStats $script:stats $false $null
+
+        fillTargetItems @() @()
+        completeUiWork indexStats
+
+        testUiWorkRunning indexStats | Should -Be $false
+        Should -Invoke updateIndexingButton -Times 0 -Exactly
+        $script:indexFileTotal | Should -Be 0
     }
 }
 

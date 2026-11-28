@@ -20,6 +20,7 @@ sequenceDiagram
         I-->>G: 終了
     end
     G->>S: 検索を取り消す
+    G->>G: 設定ファイル・取り込み一覧の見張りを閉じる（closeFileWatches）
     G->>G: closeTimer・インデックス作成のタイマーを止める
     G->>I: IndexingSession.Close
     G->>S: 検索の司令（照合のプール）を閉じる
@@ -29,6 +30,7 @@ sequenceDiagram
     G->>U: 閉じる
 ```
 
+- **設定ファイルと取り込み一覧の見張り（`FileSystemWatcher`）は、`Closing` の流れで 1 回、`Closing` を通らずに終わる場合のため後始末の `finally`（裏の列を `Abandon` する段の前）でもう 1 回閉じる**（`closeFileWatches`。2 回呼んでも失敗しない）。
 - 確認の選択肢は［中止して閉じる］と［閉じない］だけである。インデックス作成を続けたまま画面を閉じることはできない。確認している間にインデックス作成が終わっていれば、そのまま閉じる。
 - Office が固まってインデクサが戻らないときは、まず監視が制限時間で Office を止める。画面は 60 秒待っても終わらなければ、インデックス作成が起動した Office を PID で止め（`IndexingSession.KillOffice`）、さらに 15 秒待つ。それでも終わらなければ、そのまま閉じる（スレッドは `IndexingSession.Close` で止める）。
 - 止めるのは、インデックス作成が起動して PID を記録した Office（`OfficePids`）だけである。PID が別のプロセスに使い回されていないよう、止める前に記録したプロセス名と起動時刻が同じか確かめる（`isSameOfficeProcess`。起動時刻が読めないものは止めない）。利用者が開いていた Office は止めない。取り込み中に利用者が窓を開いた PowerPoint（`UserOfficePids` に印がある、または今見える窓がある）も止めない。

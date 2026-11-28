@@ -50,6 +50,17 @@ Describe "run_commit_tests.ps1 の選び方" -Tag Unit {
     }
 }
 
+# CI の PR（test.yml）は、ステージした変更の代わりに -Base から HEAD までの変更で選ぶ
+Describe "run_commit_tests.ps1 -Base" -Tag Io {
+    It "HEAD から HEAD までは変更が無いので、テストを選ばない" {
+        @(& $select -List -Base HEAD).Count | Should -Be 0
+    }
+
+    It "無い参照を渡したら、選ばずに止まる" {
+        { & $select -List -Base "refs/heads/no-such-branch-for-test" 2>$null } | Should -Throw
+    }
+}
+
 Describe "run_commit_tests.ps1 の静的解析の対象" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "scripts・tools・tests の .ps1 だけが対象（/ 区切りにそろえる）"; files = @("tools\check_analyzer.ps1", "tests/tools/check_analyzer.Tests.ps1", "README.md", "tools/hooks/pre-commit"); expected = "tools/check_analyzer.ps1|tests/tools/check_analyzer.Tests.ps1" }

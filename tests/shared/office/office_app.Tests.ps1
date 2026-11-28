@@ -932,6 +932,9 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
             $book | Add-Member -MemberType ScriptMethod -Name Close -Value { [void]$log.Add("Close:$($this.FullName)|$($args[0])") }
             return $book
         }
+        function newProtectedWindow([string]$sourcePath, [string]$sourceName) {
+            return [pscustomobject]@{ SourcePath = $sourcePath; SourceName = $sourceName }
+        }
         function newKeptState($com, [string]$name = "Excel", [int]$processId = 0) {
             return @{ Name = $name; Com = $com; Pid = $processId; BooksClosed = $false; Books = $null; Done = @{} }
         }
@@ -1025,6 +1028,60 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         # 本物の COM は Workbooks の取り出しで例外を投げる（偽物の ScriptProperty は例外を握りつぶすため、一覧を読む処理を差し替える）
         Mock getWorkbookSplit { throw "呼び出しが拒否されました" }
         getForeignWorkbookCount (newHandOverApp) "Excel" | Should -Be -1
+    }
+
+    It "getForeignWorkbookCount: 保護ビューの窓（置き場の外）は利用者のものと数える" {
+        $com = newHandOverApp @()
+        $com | Add-Member -NotePropertyName ProtectedViewWindows -NotePropertyValue @((newProtectedWindow "C:\docs\x" "ネットから取得.xlsx"))
+        getForeignWorkbookCount $com "Excel" | Should -Be 1
+    }
+
+    It "getForeignWorkbookCount: 保護ビューの窓が置き場の下なら数えない（isProtectedViewSourceForeign）" {
+        $com = newHandOverApp @()
+        $com | Add-Member -NotePropertyName ProtectedViewWindows -NotePropertyValue @((newProtectedWindow "C:\work\tmp\w1" "a.xlsx"))
+        getForeignWorkbookCount $com "Excel" | Should -Be 0
+    }
+
+    It "getForeignWorkbookCount: 通常のブックと保護ビューの窓を合わせて数える" {
+        $com = newHandOverApp @((newBook "C:\docs\x\山田.xlsx"))
+        $com | Add-Member -NotePropertyName ProtectedViewWindows -NotePropertyValue @((newProtectedWindow "C:\docs\y\ネットから取得.xlsx" "ネットから取得.xlsx"))
+        getForeignWorkbookCount $com "Excel" | Should -Be 2
+    }
+
+    It "getForeignWorkbookCount: ProtectedViewWindows が例外なら -1" {
+        Mock getProtectedViewForeignCount { throw "呼び出しが拒否されました" }
+        getForeignWorkbookCount (newHandOverApp) "Excel" | Should -Be -1
+    }
+
+    It "restoreHandedOverApp: ProtectedViewWindows が例外でも、自分のブックを閉じて `$true を返す" {
+        Mock getProtectedViewForeignCount { throw "呼び出しが拒否されました" }
+        $com = newHandOverApp @((newBook "C:\work\tmp\w1\a.xlsx"))
+        $state = newKeptState $com
+        (restoreHandedOverApp $state 1) | Should -Be $true
+        @($log | Where-Object { $_ -like "Close:*" }).Count | Should -Be 1
+    }
+
+    It "getForeignWorkbookCount: 保護ビューの窓の SourcePath と SourceName が読めなければ外と数える" {
+        $window = New-Object psobject
+        $window | Add-Member -MemberType ScriptProperty -Name SourcePath -Value { throw "読めません" }
+        $com = newHandOverApp @()
+        $com | Add-Member -NotePropertyName ProtectedViewWindows -NotePropertyValue @($window)
+        getForeignWorkbookCount $com "Excel" | Should -Be 1
+    }
+
+    It "getForeignWorkbookCount: 保護ビューの窓とコレクションを放す" {
+        $script:released = New-Object System.Collections.ArrayList
+        Mock releaseComObject { [void]$script:released.Add($object) }
+        $outside = newProtectedWindow "C:\docs\x" "a.xlsx"
+        $inside = newProtectedWindow "C:\work\tmp\w1" "b.xlsx"
+        $windows = @($outside, $inside)
+        $com = newHandOverApp @()
+        $com | Add-Member -NotePropertyName ProtectedViewWindows -NotePropertyValue $windows
+        getForeignWorkbookCount $com "Excel" | Should -Be 1
+        # 外の窓・置き場の下の窓・コレクションのそれぞれが 1 回ずつ放される（放し忘れると Excel が終わらない）
+        @($script:released | Where-Object { [object]::ReferenceEquals($_, $outside) }).Count | Should -Be 1
+        @($script:released | Where-Object { [object]::ReferenceEquals($_, $inside) }).Count | Should -Be 1
+        @($script:released | Where-Object { [object]::ReferenceEquals($_, $windows) }).Count | Should -Be 1
     }
 
     It "getForeignWorkbookCount: 置き場の下にある 8.3 の短い名前のブックは自分のものと数える（ファイルごとに窓を出さない）" {
