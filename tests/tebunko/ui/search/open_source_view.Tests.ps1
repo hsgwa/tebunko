@@ -135,7 +135,16 @@ Describe "getSourceConfirmDialog / getSourceConfirmCanceledStatus" -Tag Unit {
 }
 
 Describe "getSourceOpenMode / getSourceReadOnlyFailedStatus" -Tag Unit {
-    It "もらったインデックスのマクロを持てる形式 <book> は、<mode> でも読み取り専用にする" -TestCases @(
+    It "もらったインデックスのマクロを持てない形式の一覧に無い <book> は、<mode> でも読み取り専用にする" -TestCases @(
+        @{ book = "a.dotm"; mode = "normal" }
+        @{ book = "a.xltm"; mode = "normal" }
+        @{ book = "a.xlam"; mode = "new" }
+        @{ book = "a.ppam"; mode = "normal" }
+        @{ book = "a.ppsm"; mode = "normal" }
+        @{ book = "a.xla"; mode = "normal" }
+        @{ book = "a.xlsx:evil"; mode = "normal" }
+        @{ book = "a.exe"; mode = "normal" }
+        @{ book = "noext"; mode = "new" }
         @{ book = "a.xlsm"; mode = "normal" }
         @{ book = "a.XLSM"; mode = "normal" }
         @{ book = "a.xlsb"; mode = "new" }
@@ -166,7 +175,12 @@ Describe "getSourceOpenMode / getSourceReadOnlyFailedStatus" -Tag Unit {
         @{ label = "もらった .xlsx"; book = "a.xlsx"; received = $true }
         @{ label = "もらった .docx"; book = "a.docx"; received = $true }
         @{ label = "もらった .pptx"; book = "a.pptx"; received = $true }
+        @{ label = "もらった .pdf"; book = "a.pdf"; received = $true }
+        @{ label = "もらった .txt"; book = "a.txt"; received = $true }
+        @{ label = "もらった .PDF"; book = "a.PDF"; received = $true }
+        @{ label = "もらった末尾に . と空白のある .txt"; book = "evil.txt. "; received = $true }
         @{ label = "自分で取り込んだ .xlsm"; book = "a.xlsm"; received = $false }
+        @{ label = "自分で取り込んだ .dotm"; book = "a.dotm"; received = $false }
     ) {
         param ($book, $received)
         $result = getSourceOpenMode $book "normal" $received
@@ -177,6 +191,20 @@ Describe "getSourceOpenMode / getSourceReadOnlyFailedStatus" -Tag Unit {
 
     It "開けなかったときの文言にパスを入れる" {
         getSourceReadOnlyFailedStatus "C:\x\a.docm" | Should -BeLike "*C:\x\a.docm"
+    }
+}
+
+Describe "getSourceOpenMode と取り込みの対象の拡張子（officeExtensions）" -Tag Unit {
+    It "取り込み対象の拡張子は、マクロを持てない一覧に入れたものだけ通常で開く" {
+        foreach ($extension in ${officeExtensions}) {
+            $result = getSourceOpenMode "a$extension" "normal" $true
+            if (@(".xlsx", ".docx", ".pptx") -contains $extension) {
+                $result.Mode | Should -Be "normal"
+            }
+            else {
+                $result.Mode | Should -Be "readOnly"
+            }
+        }
     }
 }
 
