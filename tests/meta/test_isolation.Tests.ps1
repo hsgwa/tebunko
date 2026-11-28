@@ -229,6 +229,7 @@ Describe "テストの既定のワークスペース" -Tag Meta {
             "tools/perf/measure_typing.ps1"  = $childReason
             "tools/perf/measure_index.ps1"   = $childReason
             "tools/perf/measure_export.ps1"  = $childReason
+            "tools/perf/new_scattered_data.ps1" = "TSV のファイル名の関数（toIndexFileName）を借りるだけで、ワークスペース・設定には触らない。書くのは -Dest の下と -Words のファイルだけ"
         }
         (getUnlistedLibReaders $files $guarded $excluded) -join ", " | Should -Be ""
     }
