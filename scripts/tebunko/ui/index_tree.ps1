@@ -26,6 +26,7 @@ function loadIndexTree {
 
     $requestBox = $script:indexTreeRequest
     $requestBox.Value++
+    stopUiWork "indexTree"   # 前の反映を捨てる
     $requestId = $requestBox.Value
     $dir = $workspace.IndexDir
     $statusPath = $workspace.StatusFile
@@ -92,11 +93,12 @@ function applyIndexTreeData {
 
     $keepStatus = [bool]$script:indexTreeKeepStatus
     $script:indexTreeKeepStatus = $false
-    $script:indexTreeLoading = $false
+    stopUiWork "indexTree"   # 前の反映の続きが、これから空にする根に書き足さないようにする
     $script:indexTreeConnectError = ""
     $script:indexTreeOldCount = [int]$data.OldIndexCount
     $script:indexRoots.Clear()
     if ($data.State -eq ${pathStateUnreachable} -or $data.State -eq ${pathStateOther}) {
+        $script:indexTreeLoading = $false
         $script:indexTreeConnectError = [string]$workspace.Dir
         if (!$keepStatus) {
             setStatus (getWorkspaceUnreachableText $workspace.Dir)
@@ -108,38 +110,54 @@ function applyIndexTreeData {
 
     $root = [string]$data.Root
     $script:sourceFolderMaps[$root.TrimEnd("\")] = $data.Sources
-    foreach ($index in @($data.Indexes)) {
-        $sourcePath = if ($index.SourcePath) { $index.SourcePath } else { $null }
-        $node = [IndexNode]::CreateRoot($root, $index.Name, $index.Name, $sourcePath, [bool]$index.Exists, [bool]$index.HasSubfolders)
-        applyIndexTreeChildren $node $data.Children
-        $script:indexRoots.Add($node)
-    }
-
-    # 除外と展開のパスを、根ごとに 1 回で振り分ける（根の数 × パスの数の照合をしない）
-    $rootKeys = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($node in $script:indexRoots) {
-        [void]$rootKeys.Add($node.FullPath().TrimEnd("\"))
-    }
-    $excludesOf = groupByFolderOrAncestor @(readSearchExcludes) $rootKeys "Path"
-    $expandedOf = groupByFolderOrAncestor $expanded $rootKeys
-    foreach ($node in $script:indexRoots) {
-        $key = $node.FullPath().TrimEnd("\")
-        if ($excludesOf.ContainsKey($key)) {
-            foreach ($exclude in $excludesOf[$key]) {
-                $node.ApplyExclude($exclude.Path, $exclude.Subfolders)
+    # インデックスの数に比例する仕事なので、startUiWork（名前 indexTree）で予算ぶんずつ根を作る。
+    # 反映が終わるまで indexTreeLoading は真のまま（［検索］を押せず、「読み込み中」の表示が続く）
+    $script:indexTreeLoading = $true
+    startUiWork -Name "indexTree" -Items @($data.Indexes) -WhenBusy Restart `
+        -State @{ Root = $root; Indexes = @($data.Indexes); Children = $data.Children; Expanded = $expanded; ExcludesOf = $null; ExpandedOf = $null } `
+        -OnBegin {
+            param ($state)
+            # 除外と展開のパスを、根ごとに 1 回で振り分ける（根の数 × パスの数の照合をしない）。根の場所は CreateRoot の FullPath と同じ組み立て
+            $rootKeys = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+            foreach ($index in @($state.Indexes)) {
+                [void]$rootKeys.Add(($state.Root.TrimEnd("\") + "\" + $index.Name).TrimEnd("\"))
             }
-        }
-        if ($expandedOf.ContainsKey($key)) {
-            foreach ($path in $expandedOf[$key]) {
-                $found = $node.Find($path)
-                if ($found) {
-                    $found.SetExpanded($true)
+            $state.ExcludesOf = groupByFolderOrAncestor @(readSearchExcludes) $rootKeys "Path"
+            $state.ExpandedOf = groupByFolderOrAncestor $state.Expanded $rootKeys
+        } `
+        -OnItem {
+            param ($index, $state)
+            $sourcePath = if ($index.SourcePath) { $index.SourcePath } else { $null }
+            $node = [IndexNode]::CreateRoot($state.Root, $index.Name, $index.Name, $sourcePath, [bool]$index.Exists, [bool]$index.HasSubfolders)
+            applyIndexTreeChildren $node $state.Children
+            $key = $node.FullPath().TrimEnd("\")
+            if ($state.ExcludesOf.ContainsKey($key)) {
+                foreach ($exclude in $state.ExcludesOf[$key]) {
+                    $node.ApplyExclude($exclude.Path, $exclude.Subfolders)
                 }
             }
+            if ($state.ExpandedOf.ContainsKey($key)) {
+                foreach ($path in $state.ExpandedOf[$key]) {
+                    $found = $node.Find($path)
+                    if ($found) {
+                        $found.SetExpanded($true)
+                    }
+                }
+            }
+            $script:indexRoots.Add($node)
+        } `
+        -OnDone {
+            param ($state)
+            $script:indexTreeLoading = $false
+            updateSearchTarget
+            markTrace "startup" "07 インデックスのツリーが画面に入る"
+        } `
+        -OnStop {
+            param ($state)
+            # 例外で止まった。［検索］が押せないまま残らないよう戻す（作れた分の根だけが出る）
+            $script:indexTreeLoading = $false
+            updateSearchTarget
         }
-    }
-    updateSearchTarget
-    markTrace "startup" "07 インデックスのツリーが画面に入る"
 }
 
 function expandIndexNode {
