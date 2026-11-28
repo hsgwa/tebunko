@@ -111,6 +111,11 @@ BeforeAll {
         } catch {
             $errorText = $_.Exception.Message
         }
+        if ($fake.JobError) {
+            # 仕事の外側が壊れて出力が無く、errorText だけ届く場面
+            $output = $null
+            $errorText = $fake.JobError
+        }
         if ($fake.BeforeDone) {
             & $fake.BeforeDone
         }
@@ -390,6 +395,40 @@ Describe "showDetail" -Tag Io {
 
             $script:previewTable.Rows.Count | Should -Be 1
             $ui.DetailTitle.Text | Should -Be "議事録.docx ・ 1 ページ（目安） ・ 本文"
+        }
+
+        It "前後の行を読めないとき、今の要求の失敗なら選択行だけを出す" {
+            Mock readContentIndexLines { throw "読めません" }
+            $fake.Current = newHitRow "議事録.docx" "ページ001" 2 @("はじめに", "見積の件", "おわりに") ""
+
+            showDetail
+
+            $script:previewTable.Rows.Count | Should -Be 1
+        }
+
+        It "前後の行を読めないとき、古い要求の失敗は捨てて選択行だけの表を出さない" {
+            Mock readContentIndexLines { throw "読めません" }
+            $fake.Current = newHitRow "議事録.docx" "ページ001" 2 @("はじめに", "見積の件", "おわりに") ""
+            $fake.BeforeDone = { $script:previewRequest++ }
+            try {
+                showDetail
+            } finally {
+                $fake.BeforeDone = $null
+            }
+
+            $script:previewTable | Should -BeNullOrEmpty
+        }
+
+        It "出力が無く errorText だけ届いたときは、選択行だけを出す" {
+            $fake.Current = newHitRow "議事録.docx" "ページ001" 2 @("はじめに", "見積の件", "おわりに") ""
+            $fake.JobError = "仕事が落ちました"
+            try {
+                showDetail
+            } finally {
+                $fake.JobError = $null
+            }
+
+            $script:previewTable.Rows.Count | Should -Be 1
         }
     }
 
