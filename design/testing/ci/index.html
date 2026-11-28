@@ -4463,9 +4463,10 @@ git push origin v0.1.0
 <li>サイトを見る人のブラウザーが第三者のサーバーへ通信しないようにする。フォントは Google Fonts を使わず OS のもので表示する（<code>theme.font: false</code>）。Mermaid は Material テーマが既定では unpkg から読み込むため、<code>extra_javascript</code> で版を固定して先に読み込ませ、<code>privacy</code> プラグインがビルドのときに取り込んでサイトに同梱する（取り込んだファイルは <code>work/cache/privacy/</code> に置く）。Mermaid の版は、Material テーマが読み込む版（<code>mermaid@11</code>）に合わせる</li>
 <li>手元で見るときは次のとおり（生成物は <code>work/site/</code>）</li>
 </ul>
-<div class="highlight"><pre><span></span><code>pip install --require-hashes -r tools/mkdocs/requirements.txt
-mkdocs serve -f tools/mkdocs/mkdocs.yml
+<div class="highlight"><pre><span></span><code>.\tools\setup_dev.ps1    # work/mkdocs-venv を作り、requirements.txt を入れる（1 回）
+work\mkdocs-venv\Scripts\mkdocs serve -f tools/mkdocs/mkdocs.yml
 </code></pre></div>
+<p><code>tools/setup_dev.ps1</code> は上の <code>pip install --require-hashes -r tools/mkdocs/requirements.txt</code> を <code>work/mkdocs-venv</code> の中で行う。</p>
 
 
 
