@@ -4857,6 +4857,14 @@
 <td><a href="../search/#元のファイルの特定画面">続き</a></td>
 <td>画面</td>
 </tr>
+<tr>
+<td><code>getIndexingStateIfChanged</code></td>
+<td>path, workspaceDir, lastStamp, skipIfUnchanged</td>
+<td><code>@{Unchanged; Stamp; Format; …}</code>（集計したときは <code>getIndexingState</code> の結果に足す）</td>
+<td>画面の裏の仕事が使う集計の入口。取り込み一覧の更新の印（<code>getFileStamp</code>）を取り、skipIfUnchanged（窓の前面復帰だけが付ける）で前回の印と同じなら集計せず <code>Unchanged</code> を返す。格納形式（Format）は毎回調べて入れる</td>
+<td><a href="../../gui/responsiveness/">画面を前面にしたときの読み直し</a></td>
+<td>refreshIndexingState</td>
+</tr>
 </tbody>
 </table>
 <h3 id="statusledgerindexer_stateps1司令のスレッドで作る">StatusLedger（<code>indexer_state.ps1</code>。司令のスレッドで作る）<a class="headerlink" href="#statusledgerindexer_stateps1司令のスレッドで作る" title="Permanent link">&para;</a></h3>
