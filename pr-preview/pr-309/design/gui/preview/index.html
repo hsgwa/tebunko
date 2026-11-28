@@ -4456,14 +4456,15 @@
 </tr>
 <tr>
 <td>結果をファイルに出力</td>
-<td>閉じているファイルの行も含め、絞り込みに合うすべての行を表の順に出力する（<code>getExportHits</code>。並べ替えているときも、行は新しく作らず、素のヒットをファイルの順 → <code>getOrderedHits</code> の順に並べる。形式は <a href="../search-tab/#結果をファイルに出力">結果をファイルに出力</a> のまま）</td>
+<td>閉じているファイルの行も含め、絞り込みに合うすべての行を表の順に出力する（<code>getExportHits</code>。並べ替えているときも、行は新しく作らない。画面はファイルごとのまとまりと書く順の番号（<code>getExportHitOrder</code>）を渡すだけにし、1 件ずつに広げるのは書き出す司令のスレッド（<code>expandHitRuns</code>。番号からまとまりと位置を引く表を 1 回作る）。形式は <a href="../search-tab/#結果をファイルに出力">結果をファイルに出力</a> のまま）</td>
 </tr>
 </tbody>
 </table>
 <ul>
 <li>表（<code>ResultGrid</code>）には、見出し（<code>FileGroup</code>）と、開いているファイルの行（<code>HitRow</code>）だけを入れる（<code>result_list.ps1</code>）。見出しの行は、行の形（<code>DataGridRow</code> の <code>Template</code>）を <code>tab_search.xaml</code> の <code>FileHeaderRow</code> に替えて、列をまたいだ 1 行にする。</li>
-<li><strong>行は必要になるまで作らない（遅延表示）。</strong> 検索中は、ヒットを見出しの <code>Hits</code> に生のまま足すだけにし、1 回の取り込み（<code>pumpSearch</code>）の最後に、新しいファイルの見出しをまとめて表に入れる（<code>flushResults</code>）。表の行（<code>HitRow</code>。場所の表示・強調の元になる）は、ファイルを開いたとき・見出しを選んだとき・絞り込み・並べ替え・出力・コピーのときに、必要なファイルの分だけ作る（<code>ensureRows</code>。ファイルを開くときは先頭から <code>groupRowLimit</code> 件まで）。見出しの件数は、絞り込みに合うファイルならヒットの数（行を作らずに分かる）、合わなければ 0 にする。一致箇所の強調などは、画面に出た行だけで作る（<code>HitRow.Prepare</code>）。</li>
+<li><strong>行は必要になるまで作らない（遅延表示）。</strong> 検索中は、ヒットを場所ごとのまとまり（同じ場所で続けて見つかった行を 1 つにしたもの）にして見出しの <code>Runs</code> に足すだけにし（<code>pumpSearch</code>。1 件ずつ届いたヒットは、直前のまとまりと場所が同じならそこに足す）、1 回の取り込み（<code>pumpSearch</code>）の最後に、新しいファイルの見出しをまとめて表に入れる（<code>flushResults</code>）。表の行（<code>HitRow</code>。場所の表示・強調の元になる）は、ファイルを開いたとき・見出しを選んだとき・絞り込み・並べ替え・出力・コピーのときに、必要なファイルの分だけ作る（<code>ensureRows</code>。ファイルを開くときは先頭から <code>groupRowLimit</code> 件まで）。並べ替えるときも 1 件ずつの値には広げず、比べる値をまとまりから 1 本の並びに写して番号を並べ（<code>getSortedHitOrder</code>）、行を作るときにその番号の 1 件を読む（<code>getGroupHit</code>。まとまりごとの先頭の番号 <code>RunStarts</code> を二分探索する）。見出しの件数は、絞り込みに合うファイルならヒットの数（<code>HitCount</code>。行を作らずに分かる）、合わなければ 0 にする。一致箇所の強調などは、画面に出た行だけで作る（<code>HitRow.Prepare</code>）。</li>
 <li>開閉・絞り込み・並べ替えで多くの行を出し入れするときは、1 件ずつではなく表の中身をまとめて入れ替える（<code>rebuildResults</code>）。</li>
+<li>絞り込みは、見出しの数に比例する処理（件数・絞り込みに合う行・表の項目 <code>getGroupResultItems</code> を見出しごとに決める）を画面のスレッドで一気に回さず、仕事 <code>resultTable</code>（<code>startResultTableWork</code>。<a href="../responsiveness/">画面の応答</a>の <code>startUiWork</code>）で予算ぶんずつ回す。次の文字が来たら前の分を捨てて最初から回し、回し終えたときに表を 1 回で差し替える（合うファイルが前と同じなら差し替えない）。要約欄の文も回し終えてから出す。仕事の間は、検索中に増えたヒットを表に入れず（<code>flushResults</code> は <code>dirtyGroups</code> に溜めるだけ）、差し替えたあとに反映する。見出しの開閉・続きの行・［すべて開く］・並べ替え・選んだ行のプレビュー・コピー・出力は、仕事が回っていれば先に回し切ってから行う（<code>waitResultTable</code>）。新しい検索（<code>clearResults</code>）は仕事を捨てる。</li>
 <li>WPF の DataGrid のグループ化（<code>GroupStyle</code>）は使わない。グループ化は 1 件ごとに振り分けるため遅く（実測: 10,000 件・504 ファイルで、行ごとの一覧 約 3 秒 → グループ化 約 8〜9 秒。最初に閉じておいても速くならない）、列の幅が決まらない不具合もあったため。</li>
 <li>実測（10,000 件・504 ファイル。検索スレッドが結果を出し終えたあと、画面が取り込み終えるまでの待ちが検索時間の大半を占める）: 検索中に行を作ると 約 4.0 秒（うち待ち 約 2.4 秒）、行を後で作ると 約 2.6〜2.9 秒（うち待ち 約 1.1〜1.3 秒）。代わりに［すべて開く］は、そのとき行を作るため、10,000 行で 約 1.1〜1.5 秒かかる（1 ファイルを開くときは、そのファイルの分だけ。1 ファイルの行は 1,000 件までなので、ヒットが多いファイルでも 0.2 秒ほどで済む）。</li>
 <li>判断（場所の要約 <code>describeFileLocations</code>・表に並べる項目 <code>getResultItems</code>・1 ファイルに出す行の数 <code>getGroupRowTarget</code>・続きの行の文言 <code>getMoreRowsText</code>・並べ替え <code>sortFileGroups</code>・行を画面に出す準備 <code>prepareHitRow</code>）は判断層の <code>search\result_list_view.ps1</code> に置き、テストする。</li>
