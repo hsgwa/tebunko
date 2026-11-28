@@ -64,13 +64,12 @@ The `commit-msg` hook stops commits without it. CI checks the commits of a pull 
 You need:
 
 - Windows and Windows PowerShell 5.1 (included with Windows)
-- Pester 5.9.0 (used to run the tests). Windows includes Pester 3.4, which cannot run these tests. Install 5.9.0 once with `Install-Module Pester -RequiredVersion 5.9.0 -Scope CurrentUser -Force -SkipPublisherCheck` (`-SkipPublisherCheck` is needed because the publisher differs from the included 3.4)
 - Microsoft Excel, Word and PowerPoint (only to actually build indexes; the automated tests do not need them)
 
-After you clone the repository, turn on the pre-commit checks (once).
+After you clone the repository, run the setup script once. It installs Pester and PSScriptAnalyzer (the versions pinned in `.github\workflows\test.yml`), turns on the pre-commit checks (`tools\install_hooks.ps1`), and creates the virtual environment for MkDocs (`work\mkdocs-venv`). It is safe to run again. Use `-SkipDocs` if you do not have Python, or `-DryRun` to only list what it would do.
 
 ```powershell
-.\tools\install_hooks.ps1
+.\tools\setup_dev.ps1
 ```
 
 From then on, the following checks run on every commit. If a check fails, fix the content instead of skipping the check with `--no-verify`.
