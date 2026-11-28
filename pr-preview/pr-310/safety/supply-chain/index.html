@@ -1038,6 +1038,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    供給網とライセンス
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1054,6 +1072,36 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#リポジトリの設定コードの外" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        リポジトリの設定（コードの外）
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -4204,6 +4252,25 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#リポジトリの設定コードの外" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        リポジトリの設定（コードの外）
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -4278,7 +4345,7 @@
 <tbody>
 <tr>
 <td>main への変更</td>
-<td>main へは PR からだけ入れる（直接 push はブランチ保護で禁止）。必須チェック <code>test</code>（テスト・安全性の検査・PSScriptAnalyzer・個人情報の検査・<code>Signed-off-by</code>）・<code>pr-title</code>・<code>docs</code>・<code>analyze</code>（CodeQL）が通らず、最新の main を取り込んでいない PR はマージできない</td>
+<td>main へは PR からだけ入れる（直接 push はブランチ保護で禁止）。必須チェック <code>test</code>（テスト・安全性の検査・PSScriptAnalyzer・個人情報の検査・<code>Signed-off-by</code>）・<code>pr-title</code>・<code>docs</code>・<code>analyze</code>（CodeQL）が通らず、最新の main を取り込んでいない PR はマージできない。レビューは必須でない（メンテナが 1 人）</td>
 <td><a href="https://github.com/hsgwa/tebunko/blob/main/AGENTS.md">AGENTS.md</a>「GitHub の運用」、<code>.github/workflows/</code></td>
 </tr>
 <tr>
@@ -4313,11 +4380,17 @@
 </tr>
 <tr>
 <td>リリース</td>
-<td>タグの push で、タグの形と指すコミットが main の履歴にあることを確かめ、テストを通してから配布 zip とインストーラーを作り、カタログ・ハッシュ一覧・SBOM を zip と並べて載せ、来歴に署名する（<a href="../scans/#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>）</td>
+<td>タグの push で、タグの形と指すコミットが main の履歴にあることを確かめ、テストを通してから配布 zip とインストーラーを作り、カタログ・ハッシュ一覧・SBOM を zip と並べて載せ、zip・インストーラー・単一 .ps1 版・カタログ・ハッシュ一覧・SBOM の来歴に署名する（<a href="../scans/#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>）</td>
 <td><code>.github/workflows/release.yml</code></td>
 </tr>
 </tbody>
 </table>
+<h2 id="リポジトリの設定コードの外">リポジトリの設定（コードの外）<a class="headerlink" href="#リポジトリの設定コードの外" title="Permanent link">&para;</a></h2>
+<p>次の設定は GitHub の画面でメンテナが行う（コードやワークフローからは変えない）。</p>
+<ul>
+<li><strong>immutable releases を有効にする</strong>: 公開したリリースの資産をあとから差し替えられなくなる。タグも、リリースがある間は消せない。リリースを消すことはできるが、同じタグの名前は使い直せない。今のリリースの手順（<code>gh release create</code> が資産をまとめて 1 回で付ける）のまま使える。</li>
+<li><strong><code>v*</code> のタグの ruleset を足す</strong>: タグの削除・更新を禁止し、付け直しを防ぐ。古いタグを消すときは、ruleset を一時的に無効にする。</li>
+</ul>
 
 
 
