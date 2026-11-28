@@ -104,6 +104,9 @@ function runIngestWorker {
     }
 }
 
+# Office を使わずに読む仕事の数の上限（設定 ingestThreads の上限と、設定 0 のときのコア数からの上限）
+$script:maxIngestWorkers = 8
+
 function getIngestWorkerCount {
     # Office を使わずに読む仕事の数（取り込みのワーカーの数のうち、Office のアプリ分を除いたもの）を決める。requested が 0 以上ならその数
     # （0 は取り込みのスレッドを使わず、司令のスレッドで取り込む）、負なら設定（ingestThreads）、設定が 0 ならコア数から決める。
@@ -118,9 +121,9 @@ function getIngestWorkerCount {
     $count = if ($requested -ge 0) {
         $requested
     } elseif ($configured -gt 0) {
-        [Math]::Min($configured, 4)
+        [Math]::Min($configured, $script:maxIngestWorkers)
     } else {
-        getWorkerCount 4 $processors
+        getWorkerCount $script:maxIngestWorkers $processors
     }
     return [Math]::Max(0, [Math]::Min($count, $total))
 }

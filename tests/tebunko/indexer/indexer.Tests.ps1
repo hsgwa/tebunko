@@ -1555,15 +1555,21 @@ Describe "getIngestWorkerCount" -Tag Unit {
         . $runPath
     }
 
-    It "指定があればその数、無ければ設定、設定が 0 ならコア数から決める（ファイルの数より多くしない）" {
-        getIngestWorkerCount 0 10 3 8 | Should -Be 0
-        getIngestWorkerCount 2 10 3 8 | Should -Be 2
-        getIngestWorkerCount -1 10 3 8 | Should -Be 3
-        getIngestWorkerCount -1 10 9 8 | Should -Be 4
-        getIngestWorkerCount -1 10 0 8 | Should -Be 4
-        getIngestWorkerCount -1 10 0 2 | Should -Be 1
-        getIngestWorkerCount -1 2 0 8 | Should -Be 2
-        getIngestWorkerCount 3 0 0 8 | Should -Be 0
+    It "指定があればその数、無ければ設定、設定が 0 ならコア数 − 1（上限 8）。ファイルの数より多くしない: <Case>" -TestCases @(
+        @{ Case = "指定が 0 なら取り込みのスレッドを使わない"; Requested = 0; Total = 10; Configured = 3; Processors = 8; Expected = 0 }
+        @{ Case = "指定があればその数"; Requested = 2; Total = 10; Configured = 3; Processors = 8; Expected = 2 }
+        @{ Case = "指定が無ければ設定"; Requested = -1; Total = 10; Configured = 3; Processors = 8; Expected = 3 }
+        @{ Case = "設定が 5〜8 ならその数"; Requested = -1; Total = 20; Configured = 6; Processors = 16; Expected = 6 }
+        @{ Case = "設定が 9 以上なら上限 8"; Requested = -1; Total = 20; Configured = 9; Processors = 16; Expected = 8 }
+        @{ Case = "設定 0・コア 16 なら上限 8"; Requested = -1; Total = 20; Configured = 0; Processors = 16; Expected = 8 }
+        @{ Case = "設定 0・コア 12 なら上限 8"; Requested = -1; Total = 20; Configured = 0; Processors = 12; Expected = 8 }
+        @{ Case = "設定 0・コア 8 ならコア数 − 1"; Requested = -1; Total = 20; Configured = 0; Processors = 8; Expected = 7 }
+        @{ Case = "設定 0・コア 2 なら 1"; Requested = -1; Total = 10; Configured = 0; Processors = 2; Expected = 1 }
+        @{ Case = "ファイルの数より多くしない（コアから）"; Requested = -1; Total = 3; Configured = 0; Processors = 16; Expected = 3 }
+        @{ Case = "ファイルの数より多くしない（コア 8）"; Requested = -1; Total = 2; Configured = 0; Processors = 8; Expected = 2 }
+        @{ Case = "ファイルが 0 なら 0"; Requested = 3; Total = 0; Configured = 0; Processors = 8; Expected = 0 }
+    ) {
+        getIngestWorkerCount $Requested $Total $Configured $Processors | Should -Be $Expected
     }
 }
 
