@@ -430,6 +430,30 @@ function getIndexingState {
     return $state
 }
 
+function getIndexingStateIfChanged {
+    # 画面の裏の仕事が使う集計の入口。取り込み一覧の更新の印（getFileStamp）を取り、
+    # -SkipIfUnchanged（窓の前面復帰だけが付ける）で前回の印と同じなら、集計せず @{ Unchanged = $true; Stamp; Format } を返す。
+    # それ以外は getIndexingState の結果に Unchanged = $false と Stamp を付けて返す（前回の印が空＝ワークスペースの切り替え直後も集計する）。
+    # 格納形式（Format）は取り込み一覧の印と関係なく変わりうるため、どちらでも毎回調べて入れる
+    param (
+        [string]$Path,
+        [string]$WorkspaceDir,
+        [string]$LastStamp = "",
+        [switch]$SkipIfUnchanged
+    )
+
+    $stamp = getFileStamp $Path
+    $format = getWorkspaceIndexFormat ([Workspace]::new($WorkspaceDir))
+    if ($SkipIfUnchanged -and $LastStamp -ne "" -and $stamp -eq $LastStamp) {
+        return @{ Unchanged = $true; Stamp = $stamp; Format = $format }
+    }
+    $state = getIndexingState -path $Path
+    $state.Format = $format
+    $state.Unchanged = $false
+    $state.Stamp = $stamp
+    return $state
+}
+
 # 取り込み一覧の読み書きと、今回の取り込みでの失敗・元ファイルが無くなった行の記録をまとめる（StatusLedger）。
 # 列と状態の定義（core/paths.ps1 の ${statusColumns} など）は判断層（indexer_decide.ps1）・index_store.ps1 なども読むため、
 # 今の場所（paths.ps1 の変数）のまま動かさない（docs/design/structure/classes.md）。

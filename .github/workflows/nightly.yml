@@ -1,0 +1,84 @@
+# 毎日 1 回のテスト（GitHub Actions）
+#
+# PR では変えたファイルに対応するテストだけを流す（test.yml）。全部のテスト・カバレッジの下限・Codecov への送信・全体の静的解析と、
+# 画面のスモークテストは、ここで毎日 1 回、main で流す（docs/design/testing/ci.md「nightly.yml」）。
+# 失敗したら Discord に知らせる（リポジトリの Secrets の DISCORD_WEBHOOK_URL。無ければ知らせずに Summary に書く）。
+# 前に成功した実行から main が変わっていない日は流さない（手で動かしたときは必ず流す）。
+name: nightly
+
+on:
+  schedule:
+    # 日本時間の 3:00（UTC の 18:00）。GitHub の混み具合で遅れることがある
+    - cron: "0 18 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # 前に成功した nightly と同じコミットなら、流さない
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - name: 前に成功した実行のコミットと比べる
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          last=$(gh run list -R "$REPO" --workflow nightly.yml --branch main --status success --limit 1 --json headSha --jq '.[0].headSha // ""')
+          if [ "$EVENT" = "schedule" ] && [ "$last" = "$SHA" ]; then
+            echo "前に成功した実行（$last）から main が変わっていないため、流しません。" >> "$GITHUB_STEP_SUMMARY"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  test:
+    needs: check
+    if: needs.check.outputs.run == 'true'
+    uses: ./.github/workflows/test.yml
+    secrets: inherit
+    # test.yml の pr-comment ジョブが pull-requests: write を求めるため、呼ぶ側でも許可する
+    # （足りないと、ワークフローが不正として起動しない）。PR ではないので pr-comment 自体はスキップされる
+    permissions:
+      contents: read
+      pull-requests: write
+
+  gui:
+    needs: check
+    if: needs.check.outputs.run == 'true'
+    uses: ./.github/workflows/gui.yml
+
+  # 失敗したら Discord に知らせる。URL は秘密の値なので、式で run に埋め込まず環境変数で渡す
+  notify:
+    needs: [test, gui]
+    if: ${{ !cancelled() && contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Discord に知らせる
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TEST: ${{ needs.test.result }}
+          GUI: ${{ needs.gui.result }}
+          SHA: ${{ github.sha }}
+          URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          message="毎日のテスト（nightly）が失敗しました。main ${SHA:0:7}　test: $TEST　gui: $GUI
+          $URL"
+          if [ -z "$WEBHOOK" ]; then
+            echo "Secrets に DISCORD_WEBHOOK_URL が無いため、Discord に知らせませんでした。" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          jq -n --arg content "$message" '{content: $content}' |
+            curl -fsS -X POST -H "Content-Type: application/json" --data @- "$WEBHOOK"
