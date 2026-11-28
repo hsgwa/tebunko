@@ -425,26 +425,21 @@ function postponeAbandonedEntries {
         $run
     )
 
-    while ($null -ne ($abandoned = $dispatcher.TakeAbandonedWorker())) {
-        foreach ($lost in $abandoned.Entries) {
-            addPostponedTiming ([string]$lost.Row.相対パス)
-            completeIngestJob $run @{ Kind = "Postponed"; Entry = $lost; Reason = ${postponedReasonInUse} }
-        }
+    foreach ($postponed in $dispatcher.TakeAbandonedWorker()) {
+        addPostponedTiming ([string]$postponed.Entry.Row.相対パス)
+        completeIngestJob $run $postponed
     }
 }
 
 function postponeUndispatched {
-    # 諦めたワーカーのアプリのファイルは、渡さずに「未取り込み」のまま残す
+    # 諦めたワーカーのアプリのファイルは、渡さずに「未取り込み」のまま残す（DispatchNext が返した後回しの値をそのまま記録する）
     param (
-        $step,
+        $postponed,
         $run
     )
 
-    addPostponedTiming ([string]$step.RelPath)
-    completeIngestJob $run @{
-        Kind = "Postponed"; Entry = @{ Row = $step.Row; Number = $step.Number; Folder = $step.BookFolder }
-        Reason = ${postponedReasonInUse}; Undispatched = $true
-    }
+    addPostponedTiming ([string]$postponed.Entry.Row.相対パス)
+    completeIngestJob $run $postponed
 }
 
 function dropVanishedFile {
@@ -764,12 +759,24 @@ function flushLeftovers {
 
 function reportIngestProgress {
     # 取り込みの進み具合を画面に伝える（画面はこの 1 行から進み具合を作る。取り込み一覧は読まない）。残りの数はここだけで数える
+    #   引数なし: 取り込みの段（残り = Total - 成功 - 失敗。今のファイルは CurrentPath）
+    #   -Finish: 終わりの段の後片付けの間（残り 0。Status は何をしているかの文言）。処理済み・失敗は取り込みの段と同じ式
+    #   -Finish -Final: 最後の 1 行（残り = 渡さずに残した数 Dispatcher.Remaining。文言は空。画面が終わり方を読めるよう残す）
     param (
-        $run
+        $run,
+        [string]$Status = "",
+        [switch]$Finish,
+        [switch]$Final
     )
 
     $failures = $run.Ledger.Failures.Count
-    $run.Reporter.Progress(${indexingPhaseIngest}, ($run.SuccessCount + $failures), ($run.Total - $run.SuccessCount - $failures), $failures, $run.CurrentPath)
+    $processed = $run.SuccessCount + $failures
+    if (!$Finish) {
+        $run.Reporter.Progress(${indexingPhaseIngest}, $processed, ($run.Total - $processed), $failures, $run.CurrentPath)
+        return
+    }
+    $remaining = if ($Final) { $run.Dispatcher.Remaining } else { 0 }
+    $run.Reporter.Progress(${indexingPhaseFinish}, $processed, $remaining, $failures, $Status)
 }
 
 function completeIngestJob {
@@ -1309,7 +1316,7 @@ function invokeIndexerBody {
             # 空いているワーカーに、次のファイルを渡す（並びの先の見方は IngestDispatcher.BeginPass）
             $dispatcher.BeginPass()
             while ($null -ne ($step = $dispatcher.DispatchNext())) {
-                if ($step.Kind -eq "Abandoned") {
+                if ($step.Kind -eq "Postponed") {
                     postponeUndispatched $step $run
                 } elseif ($step.Kind -eq "Vanished") {
                     dropVanishedFile $step $total $pending $ledger
@@ -1351,8 +1358,7 @@ function invokeIndexerBody {
         # 中止・続けられないエラーの場合もここは実行される。
         # 後片付けも数十秒かかることがあるため、何をしているかを画面に伝える（進み具合の数はそのまま残す）
         # 画面は「成功 = 処理済み - 失敗」と出すため、取り込まなかった（元ファイルが無くなった）分は数に入れない
-        $processed = $run.SuccessCount + $ledger.Failures.Count
-        $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "Officeアプリを終了しています…")
+        reportIngestProgress $run -Finish -Status "Officeアプリを終了しています…"
         if ($dispatcher.UsesThreads) {
             $dispatcher.Stop()
         } else {
@@ -1367,9 +1373,9 @@ function invokeIndexerBody {
         $script:onOfficeHandOver = $null
         removeTmpDir
         # 取り込んだ TSV は、中止したときも残さず本文インデックスのファイルに入れる（残すとインデックスの容量が倍になる）
-        $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "インデックスをまとめています…")
+        reportIngestProgress $run -Finish -Status "インデックスをまとめています…"
         flushPendingPublish $pending $journal -All
-        $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "更新の記録を書き直しています…")
+        reportIngestProgress $run -Finish -Status "更新の記録を書き直しています…"
         # 取り込みの直前に無くなっていたファイルの行は除く（次回の検索でも見つからず、インデックスも削除済み）。
         # 書き直し終えたら「終」を足す（書き直しの途中で止まっても、印があるので、次の始めは取り込み中だった仕事を全部やり直す側に倒れる）
         savePendingRemovals $pending
@@ -1378,11 +1384,11 @@ function invokeIndexerBody {
         # （work\content_index\<インデックス名>\source_folder.txt。インデックス 1 個だけをコピーしても元のファイルの場所が分かる）
         writeSourceFolderFile $folders
         if (!$dispatcher.Stopped -and !$dispatcher.FolderLost) {
-            $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "検索用の索引（gram 索引）を作っています…")
+            reportIngestProgress $run -Finish -Status "検索用の索引（gram 索引）を作っています…"
             updateGramIndexesOfRound { $channel.Stop }
         }
         # 画面が終わり方（成功・失敗の件数）を読めるよう、進み具合は消さずに最後の状態を残す
-        $reporter.Progress(${indexingPhaseFinish}, $processed, $dispatcher.Remaining, $ledger.Failures.Count, "")
+        reportIngestProgress $run -Finish -Final
     }
 
     $stopped = $dispatcher.Stopped

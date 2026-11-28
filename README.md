@@ -15,7 +15,7 @@ Office があれば、すぐに使えます。インストール不要・管理�
 [![Windows](https://img.shields.io/badge/Windows-PowerShell%205.1-0078D4?logo=windows)](#動作環境)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-[**ダウンロード**](https://github.com/hsgwa/tebunko/releases/latest) ・ [使い方](#使い方) ・ [ドキュメント](https://hsgwa.github.io/tebunko/) ・ [サポート](.github/SUPPORT.ja.md)
+[**ダウンロード**](https://github.com/hsgwa/tebunko/releases/latest) ・ [使い方](#使い方) ・ [ドキュメント](https://hsgwa.github.io/tebunko/) ・ [サポート](.github/SUPPORT.ja.md) ・ [English](README.en.md)
 
 <img src="docs/images/screens/search-tab/results.png" alt="tebunko の検索画面。「単価」で検索し、一致した Word と Excel のファイルが見出しごとに並び、選んだ行の前後が下のプレビューに出ている" width="880">
 

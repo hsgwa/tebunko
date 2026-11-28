@@ -17,6 +17,9 @@ ${importCollisionRename}    = "Rename"
 ${importCollisionOverwrite} = "Overwrite"
 ${importCollisionCancel}    = "Cancel"
 
+# 取り込みの入れ替えを戻せなかったとき、残した元のインデックス（previous）を守る印のファイル名（作業フォルダの親 publish\<PID> の直下に置き、1 行目に残した場所を書く）
+${keepPreviousMarkerName}   = "keep_previous.txt"
+
 
 # testPathSegments（区切りごとの確かめ）は index_name.ps1 にある（取り込み一覧の相対パスの確かめ testIndexRelPath と共通）
 

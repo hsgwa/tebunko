@@ -18,7 +18,8 @@ param (
     [hashtable]$Settings = @{},
     [scriptblock]$Command,
     [int]$WaitSeconds = 0,     # 画面を待つ秒数（0 は閉じるまで待つ）。過ぎたら、起動した PID とその子だけを止める
-    [string]$RealWorkspace     # 既定のワークスペースの代わりに比べる場所（テスト用。既定は利用者の既定のワークスペース）
+    [string]$RealWorkspace,    # 既定のワークスペースの代わりに比べる場所（テスト用。既定は利用者の既定のワークスペース）
+    [string]$RealWorkRoot      # リポジトリの work の代わりに比べる場所（テスト用。既定は <リポジトリ>\work。scripts のコピー元は変えない）
 )
 
 $ErrorActionPreference = "Stop"
@@ -53,9 +54,10 @@ param([string]$Lib)
 }
 
 function invokeIsolated {
-    param ([bool]$SingleScript, [hashtable]$Config, [scriptblock]$Action, [int]$Wait, [string]$RealDir)
+    param ([bool]$SingleScript, [hashtable]$Config, [scriptblock]$Action, [int]$Wait, [string]$RealDir, [string]$WorkRoot)
 
     if (!$RealDir) { $RealDir = getRealDefaultWorkspace }
+    if (!$WorkRoot) { $WorkRoot = "$repoRoot\work" }
     $base = newIsolatedFolder
     $tool = Join-Path $base "tool"
     $WorkspaceDir = Join-Path $base "workspace"
@@ -65,7 +67,7 @@ function invokeIsolated {
         $watch = newIsolationWatch ([ordered]@{
             "既定のワークスペース" = $RealDir
             "リポジトリの setting.config" = "$repoRoot\setting.config"
-            "リポジトリの work" = "$repoRoot\work"
+            "リポジトリの work" = @{ Path = $WorkRoot; Exclude = @("test") }   # work\test\ はテストが正規に書く場所なので除く
         })
         Write-Host "使い捨てのフォルダ: $base"
         [void][System.IO.Directory]::CreateDirectory($tool)
@@ -132,4 +134,4 @@ function invokeIsolated {
     return $exitCode
 }
 
-exit (invokeIsolated $Single.IsPresent $Settings $Command $WaitSeconds $RealWorkspace)
+exit (invokeIsolated $Single.IsPresent $Settings $Command $WaitSeconds $RealWorkspace $RealWorkRoot)

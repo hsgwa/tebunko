@@ -129,6 +129,18 @@ jobs:
         with:
           subject-path: work/release/tebunko-${{ github.ref_name }}.ps1
 
+      # カタログ・ハッシュ一覧・部品表は 1 つの bundle にまとめる。SHA256SUMS.txt は上の追記の後なので、追記した行も署名の対象になる。
+      # 各ファイルで通らなければ、このステップをファイルごとに分ける
+      - name: カタログ・ハッシュ一覧・部品表の来歴に署名する
+        if: github.event_name == 'push'
+        id: attest-release-files
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            work/release/tebunko.cat
+            work/release/SHA256SUMS.txt
+            work/release/sbom.cdx.json
+
       # pwsh（PowerShell 7）で動かす。ランナーは run の内容を BOM なしの UTF-8 のファイルにして実行するが、
       # Windows PowerShell 5.1 は BOM の無いスクリプトを ANSI として読むため、説明に書く日本語が化ける
       - name: GitHub Release に公開
@@ -139,6 +151,7 @@ jobs:
           BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
           SETUP_BUNDLE_PATH: ${{ steps.attest-setup.outputs.bundle-path }}
           SINGLE_BUNDLE_PATH: ${{ steps.attest-single.outputs.bundle-path }}
+          RELEASE_FILES_BUNDLE_PATH: ${{ steps.attest-release-files.outputs.bundle-path }}
         run: |
           $zip = "work\release\tebunko-$env:GITHUB_REF_NAME.zip"
           $bundle = "$zip.sigstore.json"
@@ -149,6 +162,8 @@ jobs:
           $single = "work\release\tebunko-$env:GITHUB_REF_NAME.ps1"
           $singleBundle = "$single.sigstore.json"
           Copy-Item -LiteralPath $env:SINGLE_BUNDLE_PATH -Destination $singleBundle
+          $filesBundle = "work\release\tebunko-$env:GITHUB_REF_NAME.release-files.sigstore.json"
+          Copy-Item -LiteralPath $env:RELEASE_FILES_BUNDLE_PATH -Destination $filesBundle
           $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash
           $setupHash = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash
           $singleHash = (Get-FileHash -LiteralPath $single -Algorithm SHA256).Hash
@@ -168,11 +183,11 @@ jobs:
             ""
             "単一 .ps1 版の SHA256: ``$singleHash``"
             ""
-            "来歴の確認: ``gh attestation verify tebunko-$env:GITHUB_REF_NAME.zip -R $env:GITHUB_REPOSITORY``（インストーラー・単一 .ps1 版も同じ）"
+            "来歴の確認: ``gh attestation verify tebunko-$env:GITHUB_REF_NAME.zip -R $env:GITHUB_REPOSITORY --signer-workflow $env:GITHUB_REPOSITORY/.github/workflows/release.yml --source-ref refs/tags/$env:GITHUB_REF_NAME``（インストーラー・単一 .ps1 版・tebunko.cat・SHA256SUMS.txt・sbom.cdx.json も同じ。最後の 3 つの署名は tebunko-$env:GITHUB_REF_NAME.release-files.sigstore.json）"
             ""
             "改ざんの確認（zip を展開したフォルダで、ダウンロードした tebunko.cat を指定する）: ``Test-FileCatalog -Path .\scripts, .\tebunko.bat -CatalogFilePath <tebunko.cat> -Detailed``（単一 .ps1 版は対象外。SHA256SUMS.txt と来歴の署名で確かめる）"
           ) -join "`n"
-          gh release create $env:GITHUB_REF_NAME $zip $bundle $setup $setupBundle $single $singleBundle "work\release\tebunko.cat" "work\release\SHA256SUMS.txt" "work\release\sbom.cdx.json" --title $env:GITHUB_REF_NAME --notes $notes --generate-notes
+          gh release create $env:GITHUB_REF_NAME $zip $bundle $setup $setupBundle $single $singleBundle $filesBundle "work\release\tebunko.cat" "work\release\SHA256SUMS.txt" "work\release\sbom.cdx.json" --title $env:GITHUB_REF_NAME --notes $notes --generate-notes
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # 手動（workflow_dispatch）で試したときは、公開の代わりに zip・インストーラー・カタログ・ハッシュ一覧・部品表を artifact に置く
