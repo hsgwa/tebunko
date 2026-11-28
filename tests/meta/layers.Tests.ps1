@@ -243,6 +243,8 @@ Describe "依存の向き（ファイル単位）" -Tag Meta {
             newAllowances "tebunko/ui/indexing_view.ps1" "tebunko/core/settings.ps1" @('$cloudFilesAsk', '$cloudFilesDownload') $moved "移すと消える"
             newAllowances "tebunko/ui/leftover_view.ps1" "shared/office/office_process.ps1" @('$officeProcessNames') $moved "移すと消える"
             newAllowances "tebunko/ui/search/open_source_view.ps1" "tebunko/core/settings.ps1" @('$openModeReadOnly') $moved "移すと消える"
+            newAllowances "tebunko/ui/search/open_source_view.ps1" "shared/core/pdf_file.ps1" @('$pdfExtensions') $moved "移すと消える"
+            newAllowances "tebunko/ui/search/open_source_view.ps1" "shared/core/text_file.ps1" @('$textExtensions') $moved "移すと消える"
             newAllowances "tebunko/ui/search/result_list_view.ps1" "tebunko/core/settings.ps1" @('$openModeNew', '$openModeNormal', '$openModeReadOnly') $moved "移すと消える"
             newAllowances "tebunko/ui/search/search_bar_view.ps1" "tebunko/core/settings.ps1" @('$fileKindNames') $moved "移すと消える"
             newAllowances "tebunko/ui/settings/settings_view.ps1" "shared/core/folder.ps1" @("normalizeFolderPath", "testFolderUnder", "testLocalDrivePath", "testSameFolder") $moved "移すと消える"

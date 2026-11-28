@@ -98,9 +98,9 @@ function getSourceConnectFailureDialog {
 
 # ---- もらったインデックスの元のフォルダを確かめる ----
 
-# マクロ（ファイルの中に仕込まれたプログラム）を持てる形式。もらったインデックスのものは、読み取り専用で開く。
-# 取り込みの対象の拡張子（${officeExtensions}）のうち、マクロを持てるものを全部入れる（.xltm・.dotm などは取り込みの対象外のため入れない）
-${macroCapableExtensions} = @(".xlsm", ".xlsb", ".xls", ".docm", ".doc", ".pptm", ".ppt")
+# マクロ（ファイルの中に仕込まれたプログラム）を持てないと分かる形式。もらったインデックスのこれ以外の名前は、読み取り専用で開く。
+# 持てる形式の一覧でなく持てない形式の一覧にして、一覧から漏れた拡張子（.dotm・.xltm・.xla・ストリーム名つきの名前など）を安全側に倒す
+${macroFreeExtensions} = @(".xlsx", ".docx", ".pptx") + @(${pdfExtensions}) + @(${textExtensions})
 
 function testNameInList {
     # name が list のどれかと等しいか。大文字・小文字を区別せず、文字の並びそのもので比べる（OrdinalIgnoreCase。
@@ -188,7 +188,7 @@ function getSourceConfirmCanceledStatus {
 }
 
 function getSourceOpenMode {
-    # 元のファイルの開き方を決める。もらったインデックス（received）のマクロを持てる形式（${macroCapableExtensions}）は、
+    # 元のファイルの開き方を決める。もらったインデックス（received）の、マクロを持てないと分かる形式（${macroFreeExtensions}）以外は、
     # 開き方が通常・新規でも読み取り専用にする。
     # 返すもの: @{ Mode; Notice; Strict }
     #   Notice: 開けたときに添えて出す知らせ（読み取り専用に替えなかったとき、もう読み取り専用だったときは空）
@@ -201,7 +201,7 @@ function getSourceOpenMode {
 
     # Windows は名前の終わりの . と空白を落として開く（evil.xlsm. は evil.xlsm として開く）ので、落としてから拡張子を見る
     $extension = [System.IO.Path]::GetExtension(([string]$book).TrimEnd('.', ' ')).ToLowerInvariant()
-    if (!$received -or !(testNameInList $extension ${macroCapableExtensions})) {
+    if (!$received -or (testNameInList $extension ${macroFreeExtensions})) {
         return @{ Mode = $mode; Notice = ""; Strict = $false }
     }
     $notice = ""

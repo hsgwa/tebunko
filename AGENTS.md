@@ -4,7 +4,7 @@
 
 利用者への返答・報告は日本語で書く（コードのコメント・ドキュメント・コミットメッセージも日本語）。
 
-ただし `.github/` の CONTRIBUTING・SECURITY・SUPPORT・CODE_OF_CONDUCT は、英語版（`<名前>.md`）を正とし、日本語版（`<名前>.ja.md`）を並べて置く。GitHub が案内に使うのは英語版の名前のファイルのため。内容を変えるときは、両方を同じ PR で直す。日本語の文書（README・`docs/` など）からは日本語版へリンクする。README は内容をよく変えるため日本語だけにする。
+ただし `.github/` の CONTRIBUTING・SECURITY・SUPPORT・CODE_OF_CONDUCT は、英語版（`<名前>.md`）を正とし、日本語版（`<名前>.ja.md`）を並べて置く。GitHub が案内に使うのは英語版の名前のファイルのため。内容を変えるときは、両方を同じ PR で直す。日本語の文書（README・`docs/` など）からは日本語版へリンクする。README は日本語を正とし、英語版（`README.en.md`）は概要・Quick start・Safety だけの要約を置く。日本語の README の該当の節を変えたら、同じ PR で英語版の該当の所も確かめる。
 
 ## GitHub の運用
 
@@ -114,7 +114,7 @@ git config user.email <ID>+<アカウント名>@users.noreply.github.com
 
 全体の目標値は決めない。**下限を割らないこと**と、**テストが効く層を厚くすること**を守る。数値の見方は [docs/design/testing/run.md](docs/design/testing/run.md) の「タグと実行」、CI での扱いは [docs/design/testing/ci.md](docs/design/testing/ci.md) の「CI」にある。
 
-- **下限は `tests/coverage.baseline`（90.0）。** `.\tests\run.ps1 -Ci` がこれを下回ると失敗し、CI の必須チェック `test` が通らないためマージできない。
+- **下限は `tests/coverage.baseline`（90.0）。** `.\tests\run.ps1 -Ci` がこれを下回ると失敗する。CI では毎日の `nightly.yml` とリリースで確かめ、下回ると Discord に知らせが来てリリースもできない（PR の `test` はカバレッジを測らない）。
   - 下回ったら、テストを足して戻す。下限の値を下げて通さない。
   - 実測が上がっても下限は上げない。重なったテストや数字のためだけのテストを消せる余地を残すため。下限を変えるのはメンテナだけ。
 - **判断層は 95% 以上を保つ。** 画面に出す文言や可否の判定を足したら、同じ PR でテストを書く。
@@ -133,6 +133,6 @@ clone したら `.\tools\install_hooks.ps1` を 1 回実行する（`core.hooksP
 - `tools/check_commit_message.ps1`（`commit-msg` フック）… コミットメッセージの 1 行目が上の「GitHub の運用」の形であること。
 - `tools/check_signoff.ps1`（`commit-msg` フック）… 作者の `Signed-off-by` が付いていること。
 
-CI（`.github/workflows/test.yml`）は全ファイル・全履歴の検査、既定のテスト、PSScriptAnalyzer を行い、カバレッジを Codecov に送る。`v` で始まるタグを push すると `release.yml` が配布 zip を作って GitHub Release に載せる。詳細は [docs/design/testing/ci.md](docs/design/testing/ci.md) の「CI」。
+CI（`.github/workflows/test.yml`）は全ファイル・全履歴の検査を行い、PR では変えたファイルに対応するテストと、変えた `.ps1` の PSScriptAnalyzer だけを流す。既定のテスト全部・カバレッジの下限・全体の PSScriptAnalyzer・画面のスモークテストは、毎日 1 回 `nightly.yml` が main で流し（カバレッジは Codecov に送る）、失敗すると Discord に知らせる。`v` で始まるタグを push すると `release.yml` が配布 zip を作って GitHub Release に載せる。詳細は [docs/design/testing/ci.md](docs/design/testing/ci.md) の「CI」。
 
 検査に引っかかったら、`--no-verify` で飛ばさずに内容を直す。例示用として通す名前・ドメインを増やすときは `tools/check_commit.ps1` の先頭で行う。
