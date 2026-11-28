@@ -70,6 +70,42 @@ Describe "loadXaml（theme.xaml への参照の差し替え）" -Tag Unit {
     }
 }
 
+Describe "loadXaml（フォルダ名に # % が入っている）" -Tag Unit {
+    It "フォルダ名に # % が入っていても loadXaml が theme.xaml を取り込み、Font.Body が入る" {
+        # bundledXaml を使わず、実ファイルを # % 入りのフォルダに置いて通る経路を通す
+        $root = Join-Path $TestDrive "a#b%c"
+        $mainPath = Join-Path $root "xaml\win.xaml"
+        $themePath = Join-Path $root "shared\xaml\theme.xaml"
+        New-Item -ItemType Directory -Path (Split-Path $mainPath), (Split-Path $themePath) -Force | Out-Null
+        $utf8 = New-Object System.Text.UTF8Encoding($true)
+        $mainXml = @'
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../shared/xaml/theme.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+    <SolidColorBrush x:Key="Own" Color="#111111" />
+</ResourceDictionary>
+'@
+        $themeXml = @'
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="Accent" Color="#223344" />
+</ResourceDictionary>
+'@
+        [System.IO.File]::WriteAllText($mainPath, $mainXml, $utf8)
+        [System.IO.File]::WriteAllText($themePath, $themeXml, $utf8)
+        $result = loadXaml $mainPath
+        $result.Contains("Own") | Should -Be $true
+        $result.Contains("Accent") | Should -Be $true
+        $result["Accent"].Color.ToString() | Should -Be "#FF223344"
+        # FrameworkElement のルートには Font.Body が入る
+        $elementPath = Join-Path $root "xaml\el.xaml"
+        [System.IO.File]::WriteAllText($elementPath, '<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" />', $utf8)
+        (loadXaml $elementPath).Resources["Font.Body"].Source | Should -Be "Segoe UI, Yu Gothic UI, Meiryo UI"
+    }
+}
+
 Describe "newAppFontFamily（画面の既定のフォント）" -Tag Unit {
     It "欧文は Segoe UI、足りない文字（日本語）は Yu Gothic UI・Meiryo UI で表す（Windows 標準のフォントだけ。同梱のフォルダを指さない）" {
         $family = newAppFontFamily
