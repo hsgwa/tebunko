@@ -766,26 +766,121 @@ function swapInImportedIndexDir {
         }
     } catch {
         if ($hadPrevious) {
-            [void](moveDirectoryUnder $previousDir $targetDir $indexRoot $workRoot)
+            $cause = $_
+            $swap = @{ TargetDir = $targetDir; PreviousDir = $previousDir; IndexRoot = $indexRoot; WorkRoot = $workRoot }
+            $moved = $false
+            $detail = ""
+            try {
+                $moved = moveDirectoryUnder $previousDir $targetDir $indexRoot $workRoot
+            } catch {
+                $detail = $_.Exception.Message
+            }
+            if (!$moved) {
+                throwSwapRestoreFailed $swap $detail $cause
+            }
         }
         throw
     }
     return @{ TargetDir = $targetDir; PreviousDir = $previousDir; HadPrevious = $hadPrevious; IndexRoot = $indexRoot; WorkRoot = $workRoot }
 }
 
-function restoreSwappedIndexDir {
-    # swapInImportedIndexDir で入れ替えたフォルダを、入れ替える前に戻す（入れたものを消し、退避した前のフォルダを戻す）
+function throwSwapRestoreFailed {
+    # 入れ替えを戻せなかったとき、退避した前のフォルダ（previous）を消さずに残すための例外を投げる。
+    # 例外の Data["KeepPrevious"] に previous のパスを入れる（importIndexCore の片付けが、これを消さない）。
+    # 文言には残した場所と元の場所を書き、元の失敗の理由（cause）は後ろに足して隠さない
     param (
-        $swap
+        $swap,
+        [string]$detail,
+        $cause
     )
 
-    if (!(removeDirectoryUnder $swap.TargetDir $swap.IndexRoot)) {
-        throw "置き場の外か、途中にリンクがあるため、入れ替えを戻せません: $($swap.TargetDir)"
+    $marker = Join-Path $swap.WorkRoot ${keepPreviousMarkerName}
+    $message = "入れ替えを戻せませんでした。元のインデックスは次の場所に残してあります: $($swap.PreviousDir)（元の場所: $($swap.TargetDir)）。手で元の場所に戻してから、次のファイルを消してください: ${marker}"
+    if ($detail) {
+        $message += "（戻せなかった理由: ${detail}）"
+    }
+    if ($cause) {
+        $message += "（入れ替えが失敗した理由: $($cause.Exception.Message)）"
+    }
+    $exception = New-Object System.Exception $message
+    $exception.Data["KeepPrevious"] = $swap.PreviousDir
+    throw $exception
+}
+
+function restoreSwappedIndexDir {
+    # swapInImportedIndexDir で入れ替えたフォルダを、入れ替える前に戻す（入れたものを消し、退避した前のフォルダを戻す）。
+    # 戻せなければ、退避した前のフォルダを残して例外にする（throwSwapRestoreFailed）。cause は入れ替えを戻すことになった失敗
+    param (
+        $swap,
+        $cause = $null
+    )
+
+    $removed = $false
+    $detail = ""
+    try {
+        $removed = removeDirectoryUnder $swap.TargetDir $swap.IndexRoot
+        if ($removed -and $swap.HadPrevious) {
+            $removed = moveDirectoryUnder $swap.PreviousDir $swap.TargetDir $swap.IndexRoot $swap.WorkRoot
+        }
+    } catch {
+        $removed = $false
+        $detail = $_.Exception.Message
+    }
+    if ($removed) {
+        return
     }
     if ($swap.HadPrevious) {
-        if (!(moveDirectoryUnder $swap.PreviousDir $swap.TargetDir $swap.IndexRoot $swap.WorkRoot)) {
-            throw "置き場の外か、途中にリンクがあるため、入れ替えを戻せません: $($swap.TargetDir)"
+        throwSwapRestoreFailed $swap $detail $cause
+    }
+    throw "置き場の外か、途中にリンクがあるため、入れ替えを戻せません: $($swap.TargetDir)"
+}
+
+function assertNoKeptPrevious {
+    # 前の取り込みが戻せずに残した元のインデックス（keep_previous.txt の印）が作業フォルダの親にあれば、何も消さずに例外にする
+    # （同じ PID を別のプロセスが再利用したとき、残した元のインデックスを消さないため）
+    param (
+        [string]$publishDir
+    )
+
+    $marker = Join-Path $publishDir ${keepPreviousMarkerName}
+    if (![System.IO.File]::Exists((toLongPath $marker))) {
+        return
+    }
+    $kept = (@([System.IO.File]::ReadAllLines((toLongPath $marker), [System.Text.Encoding]::UTF8)) + "")[0]
+    throw "前の取り込みで戻せなかった元のインデックスが残っています: ${kept}。手で戻してから、次のファイルを消してください: ${marker}"
+}
+
+function removeImportWorkDirKeeping {
+    # 取り込みの失敗のあとの片付け。失敗の例外（errorRecord）が KeepPrevious を持っていたら、そのフォルダ（previous）だけは消さず、
+    # 印（publishDir の keep_previous.txt。1 行目に previous のパス）を置く。持っていなければ作業フォルダごと消す。
+    # 片付けに失敗しても、元の失敗の理由を隠さない
+    param (
+        [string]$workDir,
+        [string]$publishDir,
+        $errorRecord
+    )
+
+    try {
+        $keep = [string]$errorRecord.Exception.Data["KeepPrevious"]
+        if (!$keep) {
+            [void](removeDirectoryUnder $workDir $publishDir)
+            return
         }
+        $marker = Join-Path $publishDir ${keepPreviousMarkerName}
+        [System.IO.File]::WriteAllText((toLongPath $marker), $keep + "`r`n", (New-Object System.Text.UTF8Encoding($false)))
+        foreach ($entry in @(Get-ChildItem -LiteralPath (toLongPath $workDir) -Force)) {
+            if ([string]::Equals($entry.FullName, (toLongPath $keep), [System.StringComparison]::OrdinalIgnoreCase) -or
+                [string]::Equals($entry.FullName, $keep, [System.StringComparison]::OrdinalIgnoreCase)) {
+                continue
+            }
+            if ($entry.PSIsContainer) {
+                [void](removeDirectoryUnder $entry.FullName $publishDir)
+            } else {
+                [void](removeFileUnder $entry.FullName $publishDir)
+            }
+        }
+    } catch {
+        # 片付けに失敗しても、元の失敗の理由を隠さない
     }
 }
 
@@ -882,6 +977,7 @@ function importIndexCore {
         }
 
         $workDir = Join-Path $ws.PublishDir "import"
+        assertNoKeptPrevious $ws.PublishDir
         $expanded = expandImportArchive $archive $fileEntries $workDir $finalName $folder $ws.PublishDir $progress
         $targetIndexDir = Join-Path $ws.IndexDir $finalName
         try {
@@ -900,7 +996,7 @@ function importIndexCore {
                     }
                     rewriteStatusForImport $ws.StatusFile $finalName $folder $expanded.Rows
                 } catch {
-                    restoreSwappedIndexDir $swap
+                    restoreSwappedIndexDir $swap $_
                     throw
                 }
             } catch {
@@ -908,13 +1004,8 @@ function importIndexCore {
                 throw
             }
         } catch {
-            $original = $_
-            try {
-                [void](removeDirectoryUnder $workDir $ws.PublishDir)
-            } catch {
-                # 片付けに失敗しても、元の失敗の理由を隠さない
-            }
-            throw $original
+            removeImportWorkDirKeeping $workDir $ws.PublishDir $_
+            throw
         }
 
         # 11. 上書きなら、前の gram 索引を消す（消せなくても続ける。次のインデックス作成で整理される）

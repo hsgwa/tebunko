@@ -17,10 +17,12 @@ on:
 permissions:
   contents: read
 
-# opened と edited が同時に動いても、コメントが 2 件できないよう PR ごとに順に動かす（動いている実行は取り消さない）
+# PR・Issue ごとに 1 本だけ動かす（docs/design/testing/ci.md「title.yml」）。
+# PR は、新しい実行が来たら動いている古い実行を取り消す（古い実行の終わりを待たない。取り消された実行は pr-comment を書かない）。
+# Issue は、opened と edited が同時に動いてもコメントが 2 件できないよう、取り消さずに順に動かす
 concurrency:
   group: title-${{ github.event.pull_request.number || github.event.issue.number }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   pr-title:

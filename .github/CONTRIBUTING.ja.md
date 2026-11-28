@@ -64,13 +64,12 @@ feat!: インデックスの形式を変える
 必要なもの:
 
 - Windows と Windows PowerShell 5.1（Windows に最初から入っています）
-- Pester 5.9.0（テストの実行に使います）。Windows に最初から入っている 3.4 では動きません。`Install-Module Pester -RequiredVersion 5.9.0 -Scope CurrentUser -Force -SkipPublisherCheck` で 1 回入れてください（最初から入っている 3.4 と発行元が違うため `-SkipPublisherCheck` が要ります）
 - Microsoft Excel・Word・PowerPoint（インデックス作成を実際に試すとき。自動テストには不要です）
 
-clone したら、コミット前の検査を有効にします（1 回だけ）。
+clone したら、準備のスクリプトを 1 回実行します。Pester と PSScriptAnalyzer（`.github\workflows\test.yml` で固定した版）を入れ、コミット前の検査（`tools\install_hooks.ps1`）を有効にし、MkDocs 用の venv（`work\mkdocs-venv`）を作ります。何度流しても壊れません。Python が無いときは `-SkipDocs`、やることを見るだけなら `-DryRun` を付けます。
 
 ```powershell
-.\tools\install_hooks.ps1
+.\tools\setup_dev.ps1
 ```
 
 以後、コミットのたびに次の検査が動きます。引っかかったときは `--no-verify` で飛ばさず、内容を直してください。
@@ -88,7 +87,7 @@ clone したら、コミット前の検査を有効にします（1 回だけ）
 ```
 
 - **機能を足したり動きを変えたりしたら、同じ Pull Request でテストを書いてください。** 画面に出す文言や可否の判定（判断層）は特に厚くします。
-- **カバレッジは下限を割りません。** CI（`.\tests\run.ps1 -Ci`）は、カバレッジが `tests/coverage.baseline` の値（90.0）を下回ると失敗します。下回ったらテストを足して戻してください。下限の値は変えません（変えるのはメンテナだけです）。画面層は計測の対象外です。
+- **カバレッジは下限を割りません。** 毎日の CI（`nightly.yml` の `.\tests\run.ps1 -Ci`）は、カバレッジが `tests/coverage.baseline` の値（90.0）を下回ると失敗します。PR の CI はカバレッジを測らないので、テストを足すときは手元の `.\tests\run.ps1 -Ci` で確かめてください。下回ったらテストを足して戻してください。下限の値は変えません（変えるのはメンテナだけです）。画面層は計測の対象外です。
 - **数字を上げるためだけのテストは書きません。** 動きは単体テストで確かめます。入力と期待値だけが違うテストは、`-TestCases` の 1 つの `It` にまとめてください。
 - 画面を変えたときは、`tebunko.bat` で実際に起動して確かめてください。
 

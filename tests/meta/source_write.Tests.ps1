@@ -269,6 +269,7 @@ BeforeAll {
         @{ File = "tebunko\index\index_archive.ps1"; Owner = "exportIndexCore"; Calls = @("Move", "Open", "Remove-Item"); Reason = "エクスポートの zip を、利用者が選んだ出力先へ書く（一時ファイルに書いてから移し、同名の前のファイルと一時ファイルを消す）" }
         @{ File = "tebunko\index\index_archive.ps1"; Owner = "extractArchiveEntryToFile"; Calls = @("FileAccess.Write", "FileMode.CreateNew", "New-Object FileStream"); Reason = "インポートする zip の部品を、作業フォルダへ展開する" }
         @{ File = "tebunko\index\index_archive.ps1"; Owner = "openIndexArchive"; Calls = @("Open"); Reason = "インポートする zip を読み取りで開く" }
+        @{ File = "tebunko\index\index_archive.ps1"; Owner = "removeImportWorkDirKeeping"; Calls = @("WriteAllText"); Reason = "取り込みの入れ替えを戻せなかったとき、残した元のインデックスを守る印（keep_previous.txt）を作業フォルダの親（ワークスペースの publish\<PID>）に書く" }
         @{ File = "tebunko\index\index_archive.ps1"; Owner = "writeArchiveFile"; Calls = @("CopyTo"); Reason = "エクスポートの zip の部品を書く（作業フォルダの一時ファイル）" }
         @{ File = "tebunko\index\index_format_store.ps1"; Owner = "removeOldIndexOf"; Calls = @("Delete"); Reason = "古い形式のインデックスのファイルを消す（インデックスの置き場。元のファイルではない）" }
         @{ File = "tebunko\index\index_format_store.ps1"; Owner = "updateIndexFormat"; Calls = @("FileAccess.ReadWrite", "FileMode.OpenOrCreate", "New-Object FileStream"); Reason = "インデックスの目録ファイルを書き換える（ワークスペース）" }

@@ -102,6 +102,29 @@ Describe "文字コードと改行" -Tag Meta {
         ($bad -join ", ") | Should -Be ""
     }
 
+    It ".editorconfig が .gitattributes と同じ文字コードと改行を指している" {
+        $root = Split-Path $here -Parent
+        $sections = @{}
+        $current = ""
+        foreach ($line in [System.IO.File]::ReadAllLines((Join-Path $root ".editorconfig"))) {
+            if ($line -match '^\[(.+)\]\s*$') { $current = $Matches[1]; $sections[$current] = @{}; continue }
+            if ($current -ne "" -and $line -match '^\s*([a-z_]+)\s*=\s*(\S+)\s*$') { $sections[$current][$Matches[1]] = $Matches[2] }
+        }
+        $problems = @()
+        $checked = 0
+        foreach ($line in [System.IO.File]::ReadAllLines((Join-Path $root ".gitattributes"))) {
+            if ($line -notmatch '^(?<pattern>\S+)\s+text\s+eol=(?<eol>crlf|lf)\s*$') { continue }
+            $checked++
+            $key = $Matches['pattern']
+            $eol = $Matches['eol']
+            if (!$sections.ContainsKey($key)) { $problems += "$key の節が .editorconfig に無い"; continue }
+            if ($sections[$key]['end_of_line'] -ne $eol) { $problems += "$key の end_of_line が $eol でない" }
+            if ($eol -eq 'crlf' -and $sections[$key]['charset'] -ne 'utf-8-bom') { $problems += "$key の charset が utf-8-bom でない" }
+        }
+        $checked | Should -BeGreaterThan 5
+        ($problems -join ", ") | Should -Be ""
+    }
+
     # scripts\ には CP932（Shift_JIS）で表せる文字だけを書く。単一 .ps1 を Shift_JIS で保存し直しても、
     # 記号の文字が落ちたり別の字に化けたりしないため（画面の印は Lucide のアイコン、theme.xaml の Icon.* で描く）。
     # best-fit（近い字への置き換え）を使わないので、`〜`（U+301C）のように化ける字も止まる（tests\helpers\cp932.ps1）。
