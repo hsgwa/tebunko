@@ -1256,3 +1256,60 @@ Describe "分けた塊（版 3）のファイルの検索" -Tag Io {
         $result.Skipped.Count | Should -Be 0
     }
 }
+
+Describe "expandHitRuns・getHitRunCount（場所ごとのまとまり → 1 件ずつの形・行の数）" -Tag Unit {
+    BeforeAll {
+        function newTestRun {
+            param ([string]$location, [int[]]$numbers, [string[]]$lines)
+            return @{
+                Root = "C:\idx"; RelPath = "営業\a.xlsx\$location.tsv"; RelDir = "営業"; FileName = "$location.tsv"; Book = "a.xlsx"; Location = $location
+                LineNumbers = [System.Collections.Generic.List[int]]$numbers; Lines = [System.Collections.Generic.List[string]]$lines
+            }
+        }
+    }
+
+    It "まとまりの順・まとまりの中の順のまま、今の 1 件ずつの形（同じ項目）にする" {
+        $runs = @((newTestRun "4月" @(3, 9) @("x", "y")), (newTestRun "5月" @(1) @("z")))
+
+        $hits = expandHitRuns $runs
+
+        $hits.Count | Should -Be 3
+        $hits[0] | Should -BeOfType [pscustomobject]
+        (@($hits[0].PSObject.Properties.Name) -join ",") | Should -Be "Root,RelPath,RelDir,FileName,Book,Location,LineNumber,Line"
+        (@($hits | ForEach-Object { "$($_.RelPath)|$($_.Location)|$($_.LineNumber)|$($_.Line)" }) -join ";") |
+            Should -Be "営業\a.xlsx\4月.tsv|4月|3|x;営業\a.xlsx\4月.tsv|4月|9|y;営業\a.xlsx\5月.tsv|5月|1|z"
+        getHitRunCount $runs | Should -Be 3
+    }
+
+    It "まとまりが無ければ、空の配列と 0" {
+        $hits = expandHitRuns @()
+        , $hits | Should -BeOfType [object[]]
+        $hits.Count | Should -Be 0
+        (expandHitRuns @() ([int[]]@())).Count | Should -Be 0
+        getHitRunCount @() | Should -Be 0
+    }
+
+    It "getHitRunIndex: ヒットの番号 → まとまりの番号・まとまりの中の位置の表（境目・1 行のまとまり・空）" {
+        $runs = @((newTestRun "4月" @(3, 9) @("x", "y")), (newTestRun "5月" @(1) @("z")), (newTestRun "6月" @(2, 4, 8) @("p", "q", "r")))
+
+        $table = getHitRunIndex $runs
+
+        ($table.RunOf -join ",") | Should -Be "0,0,1,2,2,2"
+        ($table.OffsetOf -join ",") | Should -Be "0,1,0,0,1,2"
+        (getHitRunIndex @()).RunOf.Length | Should -Be 0
+    }
+
+    It "書く順の番号（order）があれば、その順（<Name>）" -ForEach @(
+        @{ Name = "まとまりの境目をまたぐ"; Order = @(5, 2, 0, 3, 1, 4); Expected = "6月:8:r,5月:1:z,4月:3:x,6月:2:p,4月:9:y,6月:4:q" }
+        @{ Name = "見つかった順と同じ番号"; Order = @(0, 1, 2, 3, 4, 5); Expected = "4月:3:x,4月:9:y,5月:1:z,6月:2:p,6月:4:q,6月:8:r" }
+        @{ Name = "番号が 1 つ"; Order = @(4); Expected = "6月:4:q" }
+    ) {
+        $runs = @((newTestRun "4月" @(3, 9) @("x", "y")), (newTestRun "5月" @(1) @("z")), (newTestRun "6月" @(2, 4, 8) @("p", "q", "r")))
+
+        $hits = expandHitRuns $runs ([int[]]$Order)
+
+        , $hits | Should -BeOfType [object[]]
+        (@($hits | ForEach-Object { "$($_.Location):$($_.LineNumber):$($_.Line)" }) -join ",") | Should -Be $Expected
+        (@($hits[0].PSObject.Properties.Name) -join ",") | Should -Be "Root,RelPath,RelDir,FileName,Book,Location,LineNumber,Line"
+    }
+}
