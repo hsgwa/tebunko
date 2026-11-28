@@ -38,7 +38,7 @@ clone したら 1 回だけ次を実行する。`core.hooksPath` を `tools/hook
 | `tests/testdata/scrub_personal.ps1` | `tests/testdata/scrub_personal.Tests.ps1` |
 | `docs/design/indexing/` の `errors*.md`・`log-warnings*.md`、`docs/design/gui/` の `messages*.md` | `meta/error_messages`（利用者に出す文言が一覧にあるか）と `meta/links` |
 | `.md`・`docs/` の中 | `meta/links` |
-| `tests/gui/` の中（画面のスモークテスト） | 流さない（CI の `gui.yml` と、手元の `-Tag Gui` で流す） |
+| `tests/gui/` の中（画面のスモークテスト） | 流さない（毎日の CI の `gui.yml` と、手元の `-Tag Gui` で流す） |
 | 対応するテストが無い・消した `scripts/` の `.ps1`、`tests/` のほかのファイル（`run.ps1`・`helpers/`・`testdata/` など） | 速いテスト（`Unit`・`Meta`）を全部 |
 | それ以外（`.github/`・画像・設定など） | 流さない |
 
