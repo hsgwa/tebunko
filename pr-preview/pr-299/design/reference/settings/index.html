@@ -2769,6 +2769,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2897,6 +2903,90 @@
     
   
     画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス管理）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（検索と検索結果）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス作成の実行）
   
 
     
@@ -3280,7 +3370,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_20" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3302,14 +3392,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_20" id="__nav_3_7_20_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_17">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_20">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4100,6 +4190,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ファイルの変更の見張りsharedcorefile_watchps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ファイルの変更の見張り（shared/core/file_watch.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#診断情報とログの世代sharedcorediagnostics_viewps1diagnosticsps1tebunkocorediagnosticsps1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4304,6 +4405,17 @@
     <span class="md-ellipsis">
       
         ファイルとフォルダ（shared/core/fs.ps1・folder.ps1・shared/office/office_file_kind_view.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ファイルの変更の見張りsharedcorefile_watchps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ファイルの変更の見張り（shared/core/file_watch.ps1）
       
     </span>
   </a>
@@ -5128,6 +5240,53 @@
 <td>folder が今もあればそのまま、無ければその上の今もあるフォルダ。どこにも無ければ空</td>
 <td><a href="../../gui/common/#フォルダ選択ダイアログ参照">フォルダ選択ダイアログ（［参照…］）</a></td>
 <td>画面（フォルダ選択）</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ファイルの変更の見張りsharedcorefile_watchps1">ファイルの変更の見張り（<code>shared/core/file_watch.ps1</code>）<a class="headerlink" href="#ファイルの変更の見張りsharedcorefile_watchps1" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>関数</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>詳細</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>newFileWatch</code></td>
+<td>path</td>
+<td>見張り / <code>$null</code></td>
+<td>ファイルを <code>FileSystemWatcher</code> で見張る（合図は <code>Register-ObjectEvent</code> で列に積むだけ）。ネットワークの場所・フォルダが無い・作れないときは <code>$null</code></td>
+<td><a href="../../gui/responsiveness/">画面を前面にしたときの読み直し</a></td>
+<td>startup（見張りの作成）</td>
+</tr>
+<tr>
+<td><code>testFileWatchSignaled</code></td>
+<td>watch</td>
+<td>bool</td>
+<td>合図が来ていれば <code>$true</code> を返して合図を消す。メモリの中だけを見る。<code>Error</code> も合図に数える</td>
+<td>同上</td>
+<td>onWindowActivated</td>
+</tr>
+<tr>
+<td><code>getFileStamp</code></td>
+<td>path</td>
+<td>string</td>
+<td>更新日時と長さの 1 行。無い・読めないときは空</td>
+<td>同上</td>
+<td>onWindowActivated, getIndexingStateIfChanged</td>
+</tr>
+<tr>
+<td><code>closeFileWatch</code></td>
+<td>watch</td>
+<td>–</td>
+<td>見張りを止めて片づける。2 回呼んでも失敗しない</td>
+<td><a href="../../structure/closing/">閉じるときの順番</a></td>
+<td>closeFileWatches</td>
 </tr>
 </tbody>
 </table>

@@ -2769,6 +2769,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2897,6 +2903,90 @@
     
   
     画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス管理）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（検索と検索結果）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス作成の実行）
   
 
     
@@ -3280,7 +3370,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_20" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3302,14 +3392,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_20" id="__nav_3_7_20_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_17">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_20">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4504,6 +4594,20 @@
 <td>1.5 倍（10 秒単位）</td>
 <td>130 秒</td>
 </tr>
+<tr>
+<td>画面の止まり（Gui。S13 の 5 つの操作。<a href="../gui-smoke/">gui-smoke.md</a>）</td>
+<td>操作 1 回のあとの、画面が応答しなかった一番長い時間（1 回の値）</td>
+<td>E 0.25〜0.92 秒・A 0.33〜0.46 秒・B 0.53〜0.83 秒・D 0.06〜0.13 秒・D2 0.06〜0.09 秒（D・D2 は 15 回のうち検索が終わった 10 回）・C 0.06〜0.30 秒</td>
+<td>2 倍（0.5 秒単位。1.0 秒を下回らない）</td>
+<td>E 2.0 秒・A 1.0 秒・B 2.0 秒・D 1.0 秒・D2 1.0 秒・C 1.0 秒（<code>tests/gui/index_many.Tests.ps1</code> の <code>stallLimits</code>。C だけ <code>stallLimitC</code>）</td>
+</tr>
+<tr>
+<td>画面のそろうまでの時間（Gui。S13 の D・D2）</td>
+<td>操作から要約欄が変わるまでの時間（<code>measureGuiActionStall</code> の <code>Total</code>。絞り込みの入力の待ち 0.3 秒を含む）</td>
+<td>D 0.7〜1.0 秒・D2 0.5〜0.8 秒（同じ 10 回）</td>
+<td>2 倍（0.5 秒単位。1.0 秒を下回らない）</td>
+<td>D 2.0 秒・D2 2.0 秒（<code>totalLimits</code>）</td>
+</tr>
 </tbody>
 </table>
 <ul>
@@ -4511,6 +4615,8 @@
 <li><code>perf.yml</code> の数字は、構成が違う（取り込みの後に同じジョブで検索すると遅く出た回がある）ので、上限の元にしない。インクリメンタルサーチの目標（7,000 件規模で 0.1 秒前後）も上限にしない。今の main はこのデータで 0.3 秒ほどなので、上限にすると今の main で落ちる</li>
 <li>変え方: 速くした PR では、同じ決め方で下げてよい。上げるのは、ランナーが遅くなったなど、速さを落としていない理由があるときだけにする。理由と数字を PR 本文に書き、メンテナの了承を得る</li>
 <li>上限はランナー（4 コア）に合わせたもの。手元の PC で超えたときは、同じ PC で main を測って比べ、回帰かどうかを見る</li>
+<li>画面の止まり（S13）は <code>perf-check.yml</code> ではなく、<code>gui.yml</code> を手で流して 5 回測る（<code>workflow_dispatch</code> の入力を <code>repeat</code> 5・<code>paths</code> <code>tests\gui\index_many.Tests.ps1</code> にする。<code>gui-repeat</code> の 5 本が 1 回ずつ流す）。場面ごとの値は成果物 <code>gui-repeat-&lt;shard&gt;</code> の <code>run-&lt;shard&gt;-1.log</code> の「S13 E（500 件）: 一番長い止まり …」の行にある。D の前の検索（9,500 件）が終わらなかった回は、D の値が無いので除き、何回を使ったかを表に書く。終わらない回が多いので、D・D2 を決め直すときは <code>repeat</code> を 15 にする</li>
+<li>D・D2 は、要約欄の要素を測る前に 1 回だけ探し、測る間はその文だけを読む。測るたびに窓全体から探すと、1 回の問い合わせが見出し 9,500 件の表の要素までたどって 2 秒近くかかり、画面のスレッドが止まっていなくても止まりに見えるため（手元で 10 ミリ秒ごとの拍を打って測ると、そのときの画面のスレッドの一番長い空きは 66 ミリ秒だった）。この測り方で、絞り込みを予算ぶんずつ回す前の版は D 4.29〜13.33 秒・D2 3.31〜9.75 秒（そろうまで D 4.6〜13.7 秒・D2 3.7〜10.1 秒）だった</li>
 </ul>
 <h2 id="誤って落ちたとき">誤って落ちたとき<a class="headerlink" href="#誤って落ちたとき" title="Permanent link">&para;</a></h2>
 <ul>

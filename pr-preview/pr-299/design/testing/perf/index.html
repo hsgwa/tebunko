@@ -2769,6 +2769,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2897,6 +2903,90 @@
     
   
     画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス管理）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（検索と検索結果）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages-indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージ（インデックス作成の実行）
   
 
     
@@ -3280,7 +3370,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_17" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_20" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -3302,14 +3392,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7_17" id="__nav_3_7_17_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_20" id="__nav_3_7_20_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7_17">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_20">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4357,7 +4447,11 @@
 <p>扱うこと: perf.yml による手動計測（取り込み・インデックス作成・検索・入力しながらの検索の速さとリソース）、手元の Windows での取り込み・入力しながらの検索の計測、取り込みの計測が頼る「計測の口」。扱わないこと: 速さの回帰テスト（<a href="../perf-check/">速さの回帰テストと上限の決め方</a>）。先に読むページ: <a href="../ci/">CI</a>。</p>
 <h2 id="perfyml性能とリソースの計測">perf.yml（性能とリソースの計測）<a class="headerlink" href="#perfyml性能とリソースの計測" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
-    W["gh workflow run perf.yml&lt;br&gt;ref・scale・count・ingest・typing"] --&gt; DATA["tebunko-perfdata の new_index.ps1&lt;br&gt;でデータを生成"]
+    W["gh workflow run perf.yml&lt;br&gt;ref・scale・count・ingest・typing&lt;br&gt;base_ref・rounds・scattered"] --&gt; DATA["tebunko-perfdata の new_index.ps1&lt;br&gt;でデータを生成"]
+    W --&gt; SCAT["散らばる語のデータを生成&lt;br&gt;（scattered = 1 のときだけ）"]
+    DATA &amp; SCAT --&gt; CMP["前と後の比べ measure_compare.ps1&lt;br&gt;（base_ref があるとき。前 → 後 を rounds 組）"]
+    W --&gt; HIT["PSCustomObject 1 万件を作る時間&lt;br&gt;（scattered = 1 のときだけ）"]
+    CMP &amp; HIT --&gt; OUT
     DATA --&gt; ING["Office からの取り込み&lt;br&gt;（ingest ≠ 0 のときだけ）"]
     DATA --&gt; IDX["インデックス作成&lt;br&gt;publishIndexFolders と gram 索引"]
     DATA --&gt; SEARCH["検索&lt;br&gt;語ごとに新しいプロセス"]
@@ -4368,7 +4462,14 @@
 <div class="highlight"><pre><span></span><code>gh workflow run perf.yml -f ref=&lt;測る ref&gt; -f scale=0.1 -f ingest=200
 </code></pre></div>
 <ul>
-<li>入力: <code>ref</code>（測る ref。作業中のブランチも測れる）、<code>scale</code>（データの量。<code>0.04</code> はブック約 2,100・TSV 約 6,400（入力しながらの検索の 7,000 件規模）、<code>1</code> でブック 5.4 万・TSV 16 万・約 1GB）、<code>count</code>（語ごとに続けて検索する回数。既定 20）、<code>ingest</code>（取り込みを測る .docx・.pptx のそれぞれの数。<code>0</code> <code>200</code> <code>1000</code>。既定 <code>0</code> は取り込みを測らない。検索だけを測る起動が長くならないようにする）、<code>xlsx</code>（Excel のブックを ZIP から読む部分を測る、普通のブックを読む回数。<code>0</code> <code>5</code>。既定 <code>0</code> は測らない）、<code>typing</code>（入力しながらの検索を測る、語ごとの入力の繰り返し回数。<code>0</code> <code>10</code> <code>20</code>。既定 <code>0</code> は測らない）、<code>typing_min_length</code>（入力しながらの検索で最初に送る語の長さ。<code>3</code>（既定。画面と同じで合否を決める）・<code>1</code>（短い語の取り消しを多く含む厳しめの参考値））</li>
+<li>入力: <code>ref</code>（測る ref。作業中のブランチも測れる。コミットを渡すときは 40 桁で書く（短い番号は <code>actions/checkout</code> で取れず、チェックアウトの段で止まる）。ブランチ・タグはそのまま書ける）、<code>scale</code>（データの量。<code>0.04</code> はブック約 2,100・TSV 約 6,400（入力しながらの検索の 7,000 件規模）、<code>1</code> でブック 5.4 万・TSV 16 万・約 1GB）、<code>count</code>（語ごとに続けて検索する回数。既定 20）、<code>ingest</code>（取り込みを測る .docx・.pptx のそれぞれの数。<code>0</code> <code>200</code> <code>1000</code>。既定 <code>0</code> は取り込みを測らない。検索だけを測る起動が長くならないようにする）、<code>xlsx</code>（Excel のブックを ZIP から読む部分を測る、普通のブックを読む回数。<code>0</code> <code>5</code>。既定 <code>0</code> は測らない）、<code>typing</code>（入力しながらの検索を測る、語ごとの入力の繰り返し回数。<code>0</code> <code>10</code> <code>20</code>。既定 <code>0</code> は測らない）、<code>typing_min_length</code>（入力しながらの検索で最初に送る語の長さ。<code>3</code>（既定。画面と同じで合否を決める）・<code>1</code>（短い語の取り消しを多く含む厳しめの参考値））、<code>base_ref</code>（比べる前の ref。既定は空で、空なら今までどおり <code>ref</code> だけを測る。コミットは <code>ref</code> と同じく 40 桁で書く。指定すると <code>ingest</code>・<code>xlsx</code>・<code>export</code>・<code>typing</code> は測らず、0 以外なら比べの段が警告を出す）、<code>rounds</code>（<code>base_ref</code> があるとき、前 → 後 を交互に測る組の数。<code>3</code> <code>5</code>。既定 <code>5</code>）、<code>scattered</code>（<code>0</code> <code>1</code>。既定 <code>0</code>。<code>1</code> なら場所ごとに 1 件ずつ散らばる語のデータも作って測り、PSCustomObject 1 万件を作る時間も測る）</li>
+<li>前と後の比べ（<code>base_ref</code> を渡したとき）は、直す前と後を同じ機械・同じデータで測るためのもの（ランナーの VM は実行ごとに CPU の型や Defender の状態が違いうるので、別々の実行どうしの差には機械の違いが入る）。<code>base_ref</code> を <code>base</code> のフォルダにもチェックアウトし、今の「計測する」の段の代わりに <code>tools/perf/measure_compare.ps1</code> を流す。取り込み・Excel・書き出し・入力しながらの検索・プレビューは測らない</li>
+<li>前と後のそれぞれに、データ（perfdata の TSV と、<code>scattered</code> が <code>1</code> なら散らばる語の TSV）の写しを、ref ごと・データごとの置き場 <code>&lt;作業&gt;\&lt;base|target&gt;\&lt;perfdata|scattered&gt;</code> に作る（置き場の中は、測る版のワークスペースの本文インデックスの置き場の形。gram 索引も作る）。<code>measure_perf.ps1</code> は TSV を pack に変えて消すので、写しを ref ごとに分ける</li>
+<li>組ごとに、前の perfdata → 前の散らばる語 → 後の perfdata → 後の散らばる語 の順に <code>measure_perf.ps1</code> を起動する（<code>scattered</code> が <code>0</code> なら 前 → 後 の 2 回）。perfdata の語と散らばる語は、置き場と語の表を分けて別々に起動する（1 つにまとめると、どちらの語もほかのデータまで照合し、今の計測と別の数字になるため）。1 組目はインデックス作成（pack と gram 索引）も測り、2 組目からは pack だけの置き場で検索だけを測る。起動ごとの結果は artifact の <code>compare\&lt;組&gt;\&lt;base|target&gt;\&lt;perfdata|scattered&gt;</code> に置く</li>
+<li>比べる値: 語ごと・ref ごとに、組ごとの「数え終わるまで」（<code>TotalMs</code>）の中央値を <code>rounds</code> 個並べ、その中央値を「その ref の値」にする。揺れは前の <code>rounds</code> 個の (最大 − 最小) ÷ 中央値、比は 後 ÷ 前。件数（前と後・組をまたいで同じか）と GC 回数（組ごとの値の中央値）も並べる。結果は Summary の「前と後の比べ」の節と、artifact の <code>compare.md</code>・<code>compare.json</code>。上限・合否は置かない（数字を並べるだけ）</li>
+<li>同じ ref を <code>base_ref</code> と <code>ref</code> に渡すと、比は 1 に近くなる（同じ機械の中の揺れの目安になる）</li>
+<li>散らばる語（<code>scattered</code> が <code>1</code> のとき）は、<code>tools/perf/new_scattered_data.ps1</code> で、場所ごとに 1 件ずつ散らばる語のデータ（19 ファイル × 500 場所 × 1 行。ヒット 9,500 件で、検索の上限 1 万件より少なくする）を、ほかの計測のデータと混ざらない別の置き場に作る。TSV は Word のページ（<code>ページ001</code> など）の形で、1 つの TSV の 3 行のうち真ん中の 1 行だけに語を含める。語の表も同じスクリプトが書く。<code>base_ref</code> が空なら、散らばる語は <code>ref</code> だけを 1 回測る（Summary の「散らばる語の検索」の節）</li>
+<li>同じ実行の中で、<code>tools/perf/measure_hit_objects.ps1</code> が、検索のヒットと同じ 8 項目（Root・RelPath・RelDir・FileName・Book・Location・LineNumber・Line）の PSCustomObject を 1 万件、<code>List[psobject]</code> に作る時間を、新しいプロセスで <code>count</code> 回測る（tebunko の版によらないので、ref ごとには測らない）。結果は Summary の「PSCustomObject 1 万件を作る時間」の節と、artifact の <code>hit_objects.md</code>・<code>hit_objects.json</code></li>
 <li>計測スクリプト（<code>tools/measure_perf.ps1</code> と <code>tools/perf/</code>）はワークフローの ref から、計測対象のコードは入力の ref からチェックアウトする。計測スクリプトが呼ぶ関数（<code>publishIndexFolders</code>・<code>getContentIndexFiles</code>・<code>searchContentIndex</code>。名前を改める前の版の <code>getIndexPackFiles</code>・<code>searchPackIndex</code> でもよい）が無い ref（本文インデックスの形式より前の版）では、エラーメッセージを出して止まる</li>
 <li>データは <a href="https://github.com/hsgwa/tebunko-perfdata">tebunko-perfdata</a> の <code>new_index.ps1</code> で毎回生成する（取り込みの一時置き場と同じ形の TSV）。置き場は <code>&lt;作業フォルダ&gt;\store\content\perfdata</code>（ワークスペースの本文インデックスの置き場と同じ形。<code>&lt;作業フォルダ&gt;</code> がワークスペースになり、gram 索引は <code>&lt;作業フォルダ&gt;\store\gram</code> に作る）。使う版は <code>perf.yml</code> の <code>PERFDATA_SHA</code> でコミットに固定する。検索する語は同じリポジトリの <code>words.tsv</code>（0 件・まれ（3 件）・大量・正規表現）</li>
 <li>ジョブの制限時間（<code>timeout-minutes</code>）は 360 分（GitHub のホストのランナーの上限）。<code>scale</code> が大きいと、データの生成・pack の作成・gram 索引の作成・検索（大量の語・正規表現は gram 索引で絞れず、1 回が長い）の合計が 120 分を超える。段ごとの時間は Summary の「インデックス作成」と「検索」の表と、<code>data_seconds</code> で分かる</li>
