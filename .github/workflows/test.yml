@@ -3,14 +3,15 @@
 # Windows PowerShell 5.1 は windows ランナーに最初から入っている。テストは Pester 5.9.0 で書く（tests\run.ps1 が版を指定して読み込む。
 # ランナーに無ければ入れる）。
 # ランナーに Office は入っていないため、Office が要るテスト（タグ Office）は tests\run.ps1 が既定で外す。
-# release.yml からも呼ばれる（workflow_call）。タグの push では release.yml の中で実行するため、ここでは動かさない。
-# 作業ブランチは PR（pull_request）で確かめる。push でも動かすと、PR のブランチでは同じテストが 2 回走るため、push は main だけにする。
-# main への push では、Codecov の比較元になる main のカバレッジを送る。
+# 流し方は 2 つ（docs/design/testing/ci.md「test.yml」）。
+#   PR（pull_request）… PR で変えたファイルに対応するテストと、変えた .ps1 の静的解析だけ（tools\run_commit_tests.ps1 -Base HEAD^1）。
+#                        カバレッジは測らない。必須チェックなので、どの PR でも動かす（文書だけの PR でも数十秒で終わる）。
+#   呼び出し（workflow_call）… 全部のテスト（tests\run.ps1 -Ci。カバレッジの下限を含む）・Codecov への送信・全体の静的解析。
+#                        nightly.yml（毎日 1 回、main）と release.yml（タグの push）から呼ぶ。
+# main への push では動かさない（毎日の nightly.yml が main を確かめる）。
 name: test
 
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_call:
 
@@ -67,18 +68,26 @@ jobs:
         # テストの前に入れるのは、テストの中の静的解析（safety.Tests.ps1）も固定した版で動かすため
         run: Install-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION -Force -Scope CurrentUser -SkipPublisherCheck
 
+      # PR で変えたファイルに対応するテストと、変えた .ps1 の静的解析。pull_request では PR をマージした形のコミットを取り出すため、
+      # 1 つ目の親（HEAD^1）が main で、HEAD^1 から HEAD までが PR の変更になる
+      - name: 変更に対応するテストと静的解析（PR）
+        if: github.event_name == 'pull_request'
+        shell: powershell
+        run: .\tools\run_commit_tests.ps1 -Base HEAD^1
+
       - name: テスト（Unit・Io・Meta）
+        if: github.event_name != 'pull_request'
         shell: powershell
         run: .\tests\run.ps1 -Ci
 
       # 送るのは work\test\coverage.xml（リポジトリからの相対パスと行ごとの実行回数）だけ。
       # トークンはリポジトリの Secrets の CODECOV_TOKEN。fork からの PR ではトークンが無くても送れる。
       # 送れなくても CI は失敗にしない（下限の確認は tests\run.ps1 -Ci が行う）。
-      # タグの push（release.yml から呼ばれたとき）では送らない。
+      # PR（カバレッジを測らない）とタグの push（release.yml から呼ばれたとき）では送らない。
       # Codecov の設定は .github/codecov.yml。判定（commit status）は参考表示だけにして PR を止めない。
       # Windows の Codecov CLI は codecov.yml を cp1252 で読むため、codecov.yml には ASCII の文字だけを書く（コメントも書かない）
       - name: カバレッジを Codecov に送る
-        if: ${{ !cancelled() && !startsWith(github.ref, 'refs/tags/') && hashFiles('work/test/coverage.xml') != '' }}
+        if: ${{ !cancelled() && github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/tags/') && hashFiles('work/test/coverage.xml') != '' }}
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -89,13 +98,14 @@ jobs:
 
       # 重大度 Error 以外も含む全規則と、5.1 に無い構文・コマンドを、ベースライン（tests\meta\PSScriptAnalyzer.baseline.tsv）と比べる。
       # 設定は tests\meta\PSScriptAnalyzer.psd1・PSScriptAnalyzer.tests.psd1。TypeNotFound は tools\check_analyzer.ps1 が除く。
-      # shell: powershell の run は ASCII だけにする（#143）
+      # shell: powershell の run は ASCII だけにする（#143）。PR では変えた .ps1 だけを上の手順で調べる
       - name: 静的解析（PSScriptAnalyzer）
+        if: github.event_name != 'pull_request'
         shell: powershell
         run: .\tools\check_analyzer.ps1
 
       - name: テスト結果の保存
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-results
