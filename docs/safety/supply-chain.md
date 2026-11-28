@@ -17,11 +17,18 @@
 
 | 仕組み | 内容 | 設定 |
 |---|---|---|
-| main への変更 | main へは PR からだけ入れる（直接 push はブランチ保護で禁止）。必須チェック `test`（テスト・安全性の検査・PSScriptAnalyzer・個人情報の検査・`Signed-off-by`）・`pr-title`・`docs`・`analyze`（CodeQL）が通らず、最新の main を取り込んでいない PR はマージできない | [AGENTS.md](../../AGENTS.md)「GitHub の運用」、`.github/workflows/` |
+| main への変更 | main へは PR からだけ入れる（直接 push はブランチ保護で禁止）。必須チェック `test`（テスト・安全性の検査・PSScriptAnalyzer・個人情報の検査・`Signed-off-by`）・`pr-title`・`docs`・`analyze`（CodeQL）が通らず、最新の main を取り込んでいない PR はマージできない。レビューは必須でない（メンテナが 1 人） | [AGENTS.md](../../AGENTS.md)「GitHub の運用」、`.github/workflows/` |
 | DCO | コミットに `Signed-off-by` を付ける。コミット時は `commit-msg` フック、PR では CI（`test.yml`）が `tools/check_signoff.ps1` で確かめる | [CONTRIBUTING.md](../../.github/CONTRIBUTING.ja.md) |
 | コミット前の検査 | 個人情報・文字コードの検査（`tools/check_commit.ps1`）と、変更に対応するテスト（`tools/run_commit_tests.ps1`）を pre-commit フックで動かす。CI は全ファイル・全履歴を検査する | `tools/hooks/`・`test.yml` |
 | GitHub Actions の固定 | ワークフローで使う Actions は、すべてコミットの SHA で版を固定する。ワークフローの権限は既定で読み取りだけにし（`contents: read`。Scorecard は `read-all`）、書き込みが要るジョブだけに足す。checkout は認証情報を残さない（`persist-credentials: false`） | `.github/workflows/*.yml` |
 | 依存の更新 | GitHub Actions と、設計書のサイトを作る Python パッケージ（`tools/mkdocs/requirements.txt`。ハッシュで固定し、配布物には入らない）は Dependabot が毎月 PR を出す。PowerShell のモジュール（Pester 5.9.0・PSScriptAnalyzer 1.25.0）は Dependabot の対象外のため、`test.yml` で版を固定する | `.github/dependabot.yml` |
 | ワークフローの静的解析 | CodeQL でワークフローを解析する（PR・main への push・毎週）。PowerShell は CodeQL の対象外のため、スクリプトは PSScriptAnalyzer（[静的解析: PSScriptAnalyzer（Microsoft）](scans.md#静的解析-psscriptanalyzermicrosoft)）が受け持つ | `.github/workflows/codeql.yml` |
 | OpenSSF Scorecard | ブランチ保護・依存の固定・危険なワークフローの有無などを採点し、結果を公開する（README のバッジ）。採点だけで、マージは止めない | `.github/workflows/scorecard.yml` |
-| リリース | タグの push で、タグの形と指すコミットが main の履歴にあることを確かめ、テストを通してから配布 zip とインストーラーを作り、カタログ・ハッシュ一覧・SBOM を zip と並べて載せ、来歴に署名する（[配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)） | `.github/workflows/release.yml` |
+| リリース | タグの push で、タグの形と指すコミットが main の履歴にあることを確かめ、テストを通してから配布 zip とインストーラーを作り、カタログ・ハッシュ一覧・SBOM を zip と並べて載せ、zip・インストーラー・単一 .ps1 版・カタログ・ハッシュ一覧・SBOM の来歴に署名する（[配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)） | `.github/workflows/release.yml` |
+
+## リポジトリの設定（コードの外）
+
+次の設定は GitHub の画面でメンテナが行う（コードやワークフローからは変えない）。
+
+- **immutable releases を有効にする**: 公開したリリースの資産をあとから差し替えられなくなる。タグも、リリースがある間は消せない。リリースを消すことはできるが、同じタグの名前は使い直せない。今のリリースの手順（`gh release create` が資産をまとめて 1 回で付ける）のまま使える。
+- **`v*` のタグの ruleset を足す**: タグの削除・更新を禁止し、付け直しを防ぐ。古いタグを消すときは、ruleset を一時的に無効にする。

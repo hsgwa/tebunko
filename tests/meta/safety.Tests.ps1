@@ -1131,6 +1131,33 @@ Describe "第三者が検証するための資料がそろっていること（d
         (Test-Path -LiteralPath "$rootDir\$file") | Should -Be $true
     }
 
+    It "release.yml がカタログ・ハッシュ一覧・部品表の来歴に署名する" {
+        $yml = [System.IO.File]::ReadAllText("$rootDir\.github\workflows\release.yml")
+        $yml -match "(?s)attest-build-provenance@[^\r\n]+\r?\n\s+with:\r?\n\s+subject-path: \|\r?\n(\s+work/release/[^\r\n]+\r?\n)+" | Should -Be $true
+        $step = $Matches[0]
+        foreach ($f in "work/release/tebunko.cat", "work/release/SHA256SUMS.txt", "work/release/sbom.cdx.json") {
+            $step.Contains($f) | Should -Be $true
+        }
+    }
+
+    It "署名のステップが、SHA256SUMS.txt への追記より後ろにある" {
+        $yml = [System.IO.File]::ReadAllText("$rootDir\.github\workflows\release.yml")
+        $yml -match "(?s)Add-Content -LiteralPath ""work\\release\\SHA256SUMS\.txt"".*id: attest-release-files" | Should -Be $true
+    }
+
+    It "公開の資産とリリースの説明に release-files の bundle と --signer-workflow・--source-ref が入る" {
+        $yml = [System.IO.File]::ReadAllText("$rootDir\.github\workflows\release.yml")
+        $yml.Contains("release-files.sigstore.json") | Should -Be $true
+        $yml.Contains("--signer-workflow") | Should -Be $true
+        $yml.Contains("--source-ref refs/tags/") | Should -Be $true
+        $yml -match 'gh release create[^\r\n]*\$filesBundle' | Should -Be $true
+    }
+
+    It "scans.md と supply-chain.md が確かめ方と、レビューが必須でないことを書いている" {
+        [System.IO.File]::ReadAllText("$rootDir\docs\safety\scans.md").Contains("--signer-workflow") | Should -Be $true
+        [System.IO.File]::ReadAllText("$rootDir\docs\safety\supply-chain.md").Contains("レビューは必須でない") | Should -Be $true
+    }
+
     It "ライセンス（LICENSE）があり、MIT の条文と著作権表示を含む" {
         $licensePath = "$rootDir\LICENSE"
         (Test-Path -LiteralPath $licensePath) | Should -Be $true
