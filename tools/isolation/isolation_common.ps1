@@ -30,6 +30,16 @@ function assertNotRealWorkspace {
     }
 }
 
+function assertWorkspaceIsolated {
+    # 決まったワークスペースが、使い捨ての既定の場所（TEBUNKO_DEFAULT_WORKSPACE）の中でなければ例外にする。
+    # 設定ファイルの workspaceFolder が、使い捨ての外の本物の場所を指す穴をふさぐ（書き込む前に止める）
+    param ([string]$Path, [string]$Isolated = $env:TEBUNKO_DEFAULT_WORKSPACE)
+
+    if (!(testIsolationPathInside $Path $Isolated)) {
+        throw "テストの準備が、使い捨ての外を指しています: $Path （設定ファイルの workspaceFolder を空にしてください）"
+    }
+}
+
 function newIsolatedFolder {
     # 一時フォルダの下に新しい使い捨てのフォルダを作って、そのパスを返す
     param ([string]$Prefix = "tebunko-isolated")
