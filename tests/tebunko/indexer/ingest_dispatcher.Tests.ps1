@@ -221,16 +221,19 @@ Describe "IngestDispatcher（振り分け）" -Tag Io {
         }
     }
 
-    It "持ち主が諦めたワーカーのアプリのファイルは、渡さずに Abandoned で返す。Office が要らないファイルは、諦めていないワーカーに渡す" {
+    It "持ち主が諦めたワーカーのアプリのファイルは、渡さずに Postponed で返す。Office が要らないファイルは、諦めていないワーカーに渡す" {
         $dispatcher = newTestDispatcher @("a.ppt", "b.docx") @("PowerPoint", "")
         $dispatcher.Start(2, @{})
         try {
             $dispatcher.Pool.Slots[0].Owns.Add("PowerPoint")
             $dispatcher.Pool.Slots[0].State.Abandoned = $true
             $steps = takeAllSteps $dispatcher
-            $steps[0].Kind | Should -Be "Abandoned"
-            $steps[0].Number | Should -Be 1
-            $steps[0].Row.相対パス | Should -Be "資料\a.ppt"
+            $steps[0].Kind | Should -Be "Postponed"
+            $steps[0].Entry.Number | Should -Be 1
+            $steps[0].Entry.Row.相対パス | Should -Be "資料\a.ppt"
+            $steps[0].Entry.Folder | Should -Not -BeNullOrEmpty
+            $steps[0].Reason | Should -Be "使っていた"
+            $steps[0].Undispatched | Should -Be $true
             $steps[1].Kind | Should -Be "Dispatched"
             $steps[1].Worker | Should -Be 1
             $dispatcher.InflightCount() | Should -Be 1
@@ -285,31 +288,67 @@ Describe "IngestDispatcher（振り分け）" -Tag Io {
 }
 
 Describe "IngestDispatcher（諦めたワーカー）" -Tag Io {
-    It "TakeAbandonedWorker は、スレッドを始めたワーカーのうち、諦めて後回しを済ませていないものを 1 つずつ、取り込み中のファイルといっしょに返す" {
+    It "TakeAbandonedWorker は、スレッドを始めたワーカーのうち、諦めて後回しを済ませていないものの後回しの値を並びで返す" {
         $dispatcher = newTestDispatcher @("a.ppt", "b.docx", "c.ppt") @("PowerPoint", "", "PowerPoint")
         $dispatcher.Start(3, @{})
         try {
-            $dispatcher.TakeAbandonedWorker() | Should -BeNullOrEmpty
+            @($dispatcher.TakeAbandonedWorker()).Count | Should -Be 0
             $steps = takeAllSteps $dispatcher
             $steps.Count | Should -Be 3
             @($steps | ForEach-Object { $_.Worker }) | Should -Be @(0, 1, 0)
             # 始まったが諦めていないワーカーは、返さない
             startFakeWorker $dispatcher 0
             startFakeWorker $dispatcher 1
-            $dispatcher.TakeAbandonedWorker() | Should -BeNullOrEmpty
+            @($dispatcher.TakeAbandonedWorker()).Count | Should -Be 0
             $dispatcher.InflightCount() | Should -Be 3
             # スレッドを始めていないワーカーは、諦めていても返さない
             $dispatcher.Pool.Slots[2].State.Abandoned = $true
-            $dispatcher.TakeAbandonedWorker() | Should -BeNullOrEmpty
+            @($dispatcher.TakeAbandonedWorker()).Count | Should -Be 0
             # 始めて、諦めたワーカーは、取り込み中のファイルといっしょに返す
             $dispatcher.Pool.Slots[0].State.Abandoned = $true
-            $taken = $dispatcher.TakeAbandonedWorker()
-            $taken.Worker | Should -Be 0
-            @($taken.Entries | ForEach-Object { $_.Number } | Sort-Object) | Should -Be @(1, 3)
+            $taken = @($dispatcher.TakeAbandonedWorker())
+            @($taken | ForEach-Object { $_.Kind } | Select-Object -Unique) | Should -Be @("Postponed")
+            @($taken | ForEach-Object { $_.Entry.Number } | Sort-Object) | Should -Be @(1, 3)
+            $taken[0].Reason | Should -Be "使っていた"
             $dispatcher.InflightCount() | Should -Be 1
             $dispatcher.Pool.Slots[0].Busy | Should -Be 0
             # 済ませたワーカーは、もう返さない
-            $dispatcher.TakeAbandonedWorker() | Should -BeNullOrEmpty
+            @($dispatcher.TakeAbandonedWorker()).Count | Should -Be 0
+        } finally {
+            $dispatcher.Stop()
+        }
+    }
+
+    It "TakeAbandonedWorker は、諦めたワーカーが無いとき・取り込み中が 0 件のときは空の並びを返し、2 つあれば両方の後回しを 1 回で返す" {
+        $dispatcher = newTestDispatcher @("a.ppt", "b.xls") @("PowerPoint", "Excel")
+        $dispatcher.Start(2, @{})
+        try {
+            # 諦めたワーカーが無い（`$null ではなく空の並び）
+            $none = $dispatcher.TakeAbandonedWorker()
+            ($null -ne $none) | Should -Be $true
+            $none.Count | Should -Be 0
+            # 取り込み中のファイルが 0 件の、諦めたワーカー
+            startFakeWorker $dispatcher 0
+            $dispatcher.Pool.Slots[0].State.Abandoned = $true
+            $empty = $dispatcher.TakeAbandonedWorker()
+            ($null -ne $empty) | Should -Be $true
+            $empty.Count | Should -Be 0
+        } finally {
+            $dispatcher.Stop()
+        }
+        # 取り込み中のファイルがある 2 つのワーカーが諦めたとき、両方の後回しを 1 回で返す
+        $dispatcher = newTestDispatcher @("a.ppt", "b.xls") @("PowerPoint", "Excel")
+        $dispatcher.Start(2, @{})
+        try {
+            $steps = takeAllSteps $dispatcher
+            @($steps | ForEach-Object { $_.Worker } | Sort-Object) | Should -Be @(0, 1)
+            startFakeWorker $dispatcher 0
+            startFakeWorker $dispatcher 1
+            $dispatcher.Pool.Slots[0].State.Abandoned = $true
+            $dispatcher.Pool.Slots[1].State.Abandoned = $true
+            $taken = $dispatcher.TakeAbandonedWorker()
+            @($taken | ForEach-Object { $_.Entry.Number } | Sort-Object) | Should -Be @(1, 2)
+            $dispatcher.InflightCount() | Should -Be 0
         } finally {
             $dispatcher.Stop()
         }
@@ -340,7 +379,7 @@ Describe "IngestDispatcher（諦めたワーカー）" -Tag Io {
             startFakeWorker $dispatcher 0
             $dispatcher.Pool.Slots[0].State.Abandoned = $true
             $taken = $dispatcher.TakeAbandonedWorker()
-            $taken.Entries.Count | Should -Be 1
+            @($taken).Count | Should -Be 1
             $dispatcher.InflightCount() | Should -Be 0
             # そのあとでワーカーが返した結果は、反映せずに捨てる
             $dispatcher.Pool.Results.Add(@{ RelPath = "資料\a.ppt"; Ok = $true })
@@ -413,9 +452,10 @@ Describe "IngestDispatcher（諦めたワーカー）" -Tag Io {
             $dispatcher.Pool.Slots[$owner].Busy | Should -Be 1
             $dispatcher.Pool.Slots[1 - $owner].Busy | Should -Be 0
             $dispatcher.Pool.Slots[$owner].State.Abandoned = $true
-            $taken = $dispatcher.TakeAbandonedWorker()
-            $taken.Worker | Should -Be $owner
-            $taken.Entries[0].Number | Should -Be 1
+            $taken = @($dispatcher.TakeAbandonedWorker())
+            $taken[0].Kind | Should -Be "Postponed"
+            $taken[0].Entry.Worker | Should -Be $owner
+            $taken[0].Entry.Number | Should -Be 1
         } finally {
             $dispatcher.Stop()
         }
