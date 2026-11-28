@@ -384,6 +384,16 @@ Describe "findSourceFile" -Tag Io {
         $script:sourceFolderMaps.Count | Should -Be 0
     }
 
+    It "移動先を選んで見つけたとき、開く前に「開きました」を出さない" {
+        newTsv "$TestDrive\moved3\sub\見積.xlsx" @("x")
+        Mock getSourceLocation { @{ Name = ""; Folder = ""; Rest = "sub"; Known = $false } }
+        Mock showConfirm { "pick" }
+        Mock selectFolder { "$TestDrive\moved3" }
+
+        findSourceFile (newRow) { param ($path) }
+        lastStatus | Should -Not -BeLike "開きました：*"
+    }
+
     It "選んだフォルダで見つかっても、インデックス名が分からなければ記録せずに開く" {
         newTsv "$TestDrive\moved2\sub\見積.xlsx" @("x")
         Mock getSourceLocation { @{ Name = ""; Folder = ""; Rest = "sub"; Known = $false } }
@@ -394,7 +404,7 @@ Describe "findSourceFile" -Tag Io {
         findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
         $script:foundPaths -join "," | Should -Be "$TestDrive\moved2\sub\見積.xlsx"
         Should -Invoke setIndexSourceFolder -Times 0 -Exactly
-        lastStatus | Should -Be "開きました：$TestDrive\moved2\sub\見積.xlsx"
+        lastStatus | Should -Not -BeLike "開きました：*"
     }
 
     It "選んだフォルダに無ければ、選んだフォルダを初期位置にしてもう一度聞く" {
@@ -1357,6 +1367,16 @@ Describe "openSourceFolder" -Tag Unit {
         Should -Invoke Start-Process -Times 0 -Exactly
     }
 
+    It "エクスプローラーを起動できなかったときは、見せられなかったと出す" {
+        $script:statuses = New-Object System.Collections.Generic.List[string]
+        Mock showInExplorer { $false }
+        Mock getCurrentHitRow { newRow }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\見積.xlsx" }
+
+        openSourceFolder
+        lastStatus | Should -Be "エクスプローラーで元のファイルを見せられませんでした：C:\data\見積.xlsx"
+    }
+
     It "エクスプローラーで元のファイルを選んだ状態で開く" {
         Mock Start-Process { }
         Mock getCurrentHitRow { newRow }
@@ -1366,6 +1386,27 @@ Describe "openSourceFolder" -Tag Unit {
         Should -Invoke Start-Process -Times 1 -Exactly -ParameterFilter {
             $FilePath -eq "explorer.exe" -and $ArgumentList -eq "/select,`"C:\data\見積.xlsx`""
         }
+    }
+}
+
+Describe "finishOpenCopy" -Tag Unit {
+    BeforeEach {
+        $script:statuses = New-Object System.Collections.Generic.List[string]
+        $window.Cursor = $null
+    }
+
+    It "openWithShell が断ったとき（`$false）は、「新規で開きました」で上書きしない" {
+        Mock testTextOpenWithNotepadBySettings { $false }
+        Mock openWithShell { setStatus "断りました"; $false }
+        finishOpenCopy "C:\data\仕様書.pdf" $false "C:\work\copy\仕様書.pdf"
+        lastStatus | Should -Be "断りました"
+    }
+
+    It "openWithShell が開いたとき（`$true）は、コピーを新規で開きましたと出す" {
+        Mock testTextOpenWithNotepadBySettings { $false }
+        Mock openWithShell { $true }
+        finishOpenCopy "C:\data\仕様書.pdf" $false "C:\work\copy\仕様書.pdf"
+        lastStatus | Should -BeLike "コピーを新規で開きました（コピー：*"
     }
 }
 

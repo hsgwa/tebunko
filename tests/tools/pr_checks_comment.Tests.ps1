@@ -268,11 +268,11 @@ Describe "各ワークフローが、自分の結果を pr-comment の複合ア�
         $job | Should -Match ([regex]::Escape("workflow-key: $key"))
     }
 
-    It "title.yml は PR・Issue ごとに順に動かす（concurrency。実行中のものは取り消さない）" {
+    It "title.yml は PR・Issue ごとに 1 本だけ動かし、PR だけ古い実行を取り消す（Issue はコメントが 2 件できないよう取り消さない）" {
         $yml = [System.IO.File]::ReadAllText((Join-Path $root ".github\workflows\title.yml")) -replace "`r`n", "`n"
         $header = ($yml -split "(?m)^jobs:", 2)[0]
         $header | Should -Match "(?m)^concurrency:\n  group: title-"
-        $header | Should -Match "(?m)^  cancel-in-progress: false$"
+        $header | Should -Match ("(?m)^  cancel-in-progress: " + [regex]::Escape('${{ github.event_name == ''pull_request'' }}') + "$")
     }
 
     It "release.yml は test.yml を呼ぶジョブに pull-requests: write を許している（足りないと release が起動しない）" {
