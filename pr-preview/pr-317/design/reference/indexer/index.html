@@ -4857,6 +4857,14 @@
 <td><a href="../search/#元のファイルの特定画面">続き</a></td>
 <td>画面</td>
 </tr>
+<tr>
+<td><code>getIndexingStateIfChanged</code></td>
+<td>path, workspaceDir, lastStamp, skipIfUnchanged</td>
+<td><code>@{Unchanged; Stamp; Format; …}</code>（集計したときは <code>getIndexingState</code> の結果に足す）</td>
+<td>画面の裏の仕事が使う集計の入口。取り込み一覧の更新の印（<code>getFileStamp</code>）を取り、skipIfUnchanged（窓の前面復帰だけが付ける）で前回の印と同じなら集計せず <code>Unchanged</code> を返す。格納形式（Format）は毎回調べて入れる</td>
+<td><a href="../../gui/responsiveness/">画面を前面にしたときの読み直し</a></td>
+<td>refreshIndexingState</td>
+</tr>
 </tbody>
 </table>
 <h3 id="statusledgerindexer_stateps1司令のスレッドで作る">StatusLedger（<code>indexer_state.ps1</code>。司令のスレッドで作る）<a class="headerlink" href="#statusledgerindexer_stateps1司令のスレッドで作る" title="Permanent link">&para;</a></h3>
@@ -5042,7 +5050,7 @@
 <tr>
 <td><code>DispatchNext</code></td>
 <td>–</td>
-<td><code>@{Kind=Abandoned／Vanished／Dispatched; ...}</code> / <code>$null</code></td>
+<td><code>@{Kind=Postponed／Vanished／Dispatched; ...}</code> / <code>$null</code></td>
 <td>並びの先から、<code>selectIngestWorker</code> で渡し先のワーカーを決め、空きがあるファイルを 1 つ選ぶ（渡し先は <code>Worker</code>。ワーカーを使うときは <code>Task.Office</code> に Office が要るかも入れる）</td>
 </tr>
 <tr>
@@ -5066,8 +5074,8 @@
 <tr>
 <td><code>TakeAbandonedWorker</code></td>
 <td>–</td>
-<td><code>@{Worker; Entries}</code> / <code>$null</code></td>
-<td>諦めたワーカーを 1 つ取り出す（取り込み中・列のファイルといっしょに返し、取り込み中から外す）</td>
+<td>後回しの値（<code>@{Kind=Postponed; Entry; Reason}</code>）の並び（無ければ空）</td>
+<td>諦めたワーカー全部の取り込み中・列のファイルを、取り込み中から外して後回しの値で返す</td>
 </tr>
 <tr>
 <td><code>StopIfRequested</code></td>
@@ -5477,7 +5485,7 @@
 <td><code>getIndexFileEntries</code></td>
 <td>indexName, labels, path</td>
 <td><code>@{Rows; Done; Failed; Pending}</code></td>
-<td>あるインデックスに取り込んだファイルの一覧（取り込み一覧のそのインデックスの行。<code>readStatusFile</code> で読む）を、画面の表に出す形で返す。Rows は <code>@{RelPath（インデックス名を除いた相対パス）; UpdatedText; Kind（Done / Failed / Pending。失敗は</code>testStatusRowFailed<code>と同じ数え方）; StateText（labels から）; Reason; SourcePath（取り込み一覧に記録した元のフォルダから組んだ元のファイルのパス。記録が無ければ空）}</code> の配列（相対パスの順）。画面の裏の仕事で動く</td>
+<td>あるインデックスに取り込んだファイルの一覧（取り込み一覧のそのインデックスの行。<code>readStatusFile</code> で読む）を、画面の表に出す形で返す。Rows は <code>IndexFileEntry</code>（プロパティだけの class。画面側は型でなく名前で読む）の配列。各行のプロパティは <code>{RelPath（インデックス名を除いた相対パス）; UpdatedText; Kind（Done / Failed / Pending。失敗は</code>testStatusRowFailed<code>と同じ数え方）; StateText（labels から）; Reason; SourcePath（取り込み一覧に記録した元のフォルダから組んだ元のファイルのパス。記録が無ければ空）}</code>（相対パスの順）。画面の裏の仕事で動く</td>
 <td><a href="../../gui/index-tab/">インデックス一覧の管理</a>の［ファイルの一覧］</td>
 <td>詳細欄</td>
 </tr>
